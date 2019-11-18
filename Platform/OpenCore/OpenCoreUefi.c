@@ -50,12 +50,18 @@ OcLoadDrivers (
   IN OC_GLOBAL_CONFIG    *Config
   )
 {
-  EFI_STATUS  Status;
-  VOID        *Driver;
-  UINT32      DriverSize;
-  UINT32      Index;
-  CHAR16      DriverPath[64];
-  EFI_HANDLE  ImageHandle;
+  EFI_STATUS                 Status;
+  VOID                       *Driver;
+  UINT32                     DriverSize;
+  UINT32                     Index;
+  CHAR16                     DriverPath[64];
+  EFI_HANDLE                 ImageHandle;
+  EFI_SYSTEM_TABLE           *NewSystemTable;
+  CONST CHAR8                *DriverName;
+  EFI_LOADED_IMAGE_PROTOCOL  *LoadedApfsDrvImage;
+  
+  NewSystemTable     = NULL;
+  LoadedApfsDrvImage = NULL;
 
   DEBUG ((DEBUG_INFO, "OC: Got %u drivers\n", Config->Uefi.Drivers.Count));
 
@@ -111,7 +117,28 @@ OcLoadDrivers (
       FreePool (Driver);
       continue;
     }
-
+    
+    DriverName = OC_BLOB_GET (Config->Uefi.Drivers.Values[Index]);
+    if (AsciiStrCmp (DriverName, "apfs.efi") == 0) {
+      Status = gBS->HandleProtocol (
+                      ImageHandle,
+                      &gEfiLoadedImageProtocolGuid,
+                      (VOID *) &LoadedApfsDrvImage
+                     );
+      if (EFI_ERROR (Status)) {
+        DEBUG ((DEBUG_VERBOSE, "Failed to Handle LoadedImage Protool with Status: %r\n", Status));
+        continue;
+      }
+      
+      NewSystemTable = AllocateNullTextOutSystemTable (gST);
+      if (NewSystemTable == NULL) {
+        DEBUG ((DEBUG_VERBOSE, "Failed to %r\n", EFI_OUT_OF_RESOURCES));
+        continue;
+      }
+      
+      LoadedApfsDrvImage->SystemTable = NewSystemTable;
+    }
+    
     Status = gBS->StartImage (
       ImageHandle,
       NULL,
