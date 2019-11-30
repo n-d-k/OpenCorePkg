@@ -70,10 +70,14 @@ OcStartImage (
   )
 {
   EFI_STATUS   Status;
+  
+  if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
+    if (Chosen->Type == OcBootApple || Chosen->Type == OcBootAppleRecovery) {
+      DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for macOS...\n"));
+      OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
+    }
+  }
 
-  //
-  // Request OS mode.
-  //
   OcConsoleControlSetBehaviour (
     ParseConsoleControlBehaviour (
       OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.ConsoleBehaviourOs)
@@ -128,8 +132,10 @@ OcMain (
 
   DEBUG ((DEBUG_INFO, "OC: OcLoadUefiSupport...\n"));
   OcLoadUefiSupport (Storage, &mOpenCoreConfiguration, &mOpenCoreCpuInfo);
-  DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport...\n"));
-  OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
+  if (mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
+    DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for all OSes...\n"));
+    OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
+  }
   DEBUG ((DEBUG_INFO, "OC: OcLoadPlatformSupport...\n"));
   OcLoadPlatformSupport (&mOpenCoreConfiguration, &mOpenCoreCpuInfo);
   DEBUG ((DEBUG_INFO, "OC: OcLoadDevPropsSupport...\n"));
