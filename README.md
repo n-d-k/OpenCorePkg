@@ -15,6 +15,7 @@ Additional features implemented by this fork
 - Compile with latest edk2.
 - NvmExpressDxe driver build script are also available for system without native nvme support. (Compatible with OC and Clover).
 - ACPI patches is now optional for non macOS with setting ACPI->Quirks->EnableForAll to yes (default is no).
+- Boot entry can be switched and selected with Up/Down arrow and Enter keys.
 
  Usage:
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
