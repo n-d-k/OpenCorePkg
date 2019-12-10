@@ -70,6 +70,10 @@ OcStartImage (
   )
 {
   EFI_STATUS   Status;
+  UINT32       Width;
+  UINT32       Height;
+  UINT32       Bpp;
+  BOOLEAN      SetMax;
   
   if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
     if (Chosen->Type == OcBootApple || Chosen->Type == OcBootAppleRecovery) {
@@ -77,7 +81,44 @@ OcStartImage (
       OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
     }
   }
+  
+  ParseScreenResolution (
+    OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.Resolution),
+    &Width,
+    &Height,
+    &Bpp,
+    &SetMax
+    );
 
+  DEBUG ((
+    DEBUG_INFO,
+    "OC: Requested resolution is %ux%u@%u (max: %d) from %a\n",
+    Width,
+    Height,
+    Bpp,
+    SetMax,
+    OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.Resolution)
+    ));
+
+  if (SetMax || (Width > 0 && Height > 0)) {
+    Status = SetConsoleResolution (
+      Width,
+      Height,
+      Bpp,
+      OcShouldReconnectConsoleOnResolutionChange (&mOpenCoreConfiguration)
+      );
+    DEBUG ((
+      EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
+      "OC: Changed resolution to %ux%u@%u (max: %d) from %a - %r\n",
+      Width,
+      Height,
+      Bpp,
+      SetMax,
+      OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.Resolution),
+      Status
+      ));
+  }
+  
   OcConsoleControlSetBehaviour (
     ParseConsoleControlBehaviour (
       OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.ConsoleBehaviourOs)

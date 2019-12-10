@@ -290,10 +290,6 @@ OcMiscLateInit (
 {
   EFI_STATUS   Status;
   EFI_STATUS   HibernateStatus;
-  UINT32       Width;
-  UINT32       Height;
-  UINT32       Bpp;
-  BOOLEAN      SetMax;
   CONST CHAR8  *HibernateMode;
   UINT32       HibernateMask;
 
@@ -316,72 +312,6 @@ OcMiscLateInit (
         );
       DEBUG ((DEBUG_INFO, "OC: LoadHandle is %p - %r\n", *LoadHandle, Status));
     }
-  }
-
-  ParseScreenResolution (
-    OC_BLOB_GET (&Config->Misc.Boot.Resolution),
-    &Width,
-    &Height,
-    &Bpp,
-    &SetMax
-    );
-
-  DEBUG ((
-    DEBUG_INFO,
-    "OC: Requested resolution is %ux%u@%u (max: %d) from %a\n",
-    Width,
-    Height,
-    Bpp,
-    SetMax,
-    OC_BLOB_GET (&Config->Misc.Boot.Resolution)
-    ));
-
-  if (SetMax || (Width > 0 && Height > 0)) {
-    Status = SetConsoleResolution (
-      Width,
-      Height,
-      Bpp,
-      OcShouldReconnectConsoleOnResolutionChange (Config)
-      );
-    DEBUG ((
-      EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
-      "OC: Changed resolution to %ux%u@%u (max: %d) from %a - %r\n",
-      Width,
-      Height,
-      Bpp,
-      SetMax,
-      OC_BLOB_GET (&Config->Misc.Boot.Resolution),
-      Status
-      ));
-  }
-
-  ParseConsoleMode (
-    OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
-    &Width,
-    &Height,
-    &SetMax
-    );
-
-  DEBUG ((
-    DEBUG_INFO,
-    "OC: Requested console mode is %ux%u (max: %d) from %a\n",
-    Width,
-    Height,
-    SetMax,
-    OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode)
-    ));
-
-  if (SetMax || (Width > 0 && Height > 0)) {
-    Status = SetConsoleMode (Width, Height);
-    DEBUG ((
-      EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
-      "OC: Changed console mode to %ux%u (max: %d) from %a - %r\n",
-      Width,
-      Height,
-      SetMax,
-      OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
-      Status
-      ));
   }
 
   HibernateMode = OC_BLOB_GET (&Config->Misc.Boot.HibernateMode);
@@ -427,6 +357,9 @@ OcMiscBoot (
   OC_INTERFACE_PROTOCOL  *Interface;
   UINTN                  BlessOverrideSize;
   CHAR16                 **BlessOverride;
+  UINT32                 Width;
+  UINT32                 Height;
+  BOOLEAN                SetMax;
 
   //
   // Do not use our boot picker unless asked.
@@ -564,7 +497,38 @@ OcMiscBoot (
   Context->PollAppleHotKeys    = Config->Misc.Boot.PollAppleHotKeys;
 
   OcLoadPickerHotKeys (Context);
+  
+  if (Context->PickerCommand == OcPickerShowPicker) {
+    ParseConsoleMode (
+      OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
+      &Width,
+      &Height,
+      &SetMax
+      );
 
+    DEBUG ((
+      DEBUG_INFO,
+      "OC: Requested console mode is %ux%u (max: %d) from %a\n",
+      Width,
+      Height,
+      SetMax,
+      OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode)
+      ));
+
+    if (SetMax || (Width > 0 && Height > 0)) {
+      Status = SetConsoleMode (Width, Height);
+      DEBUG ((
+        EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
+        "OC: Changed console mode to %ux%u (max: %d) from %a - %r\n",
+        Width,
+        Height,
+        SetMax,
+        OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
+        Status
+        ));
+    }
+  }
+  
   Context->ShowNvramReset = Config->Misc.Security.AllowNvramReset;
   if (!Config->Misc.Security.AllowNvramReset && Context->PickerCommand == OcPickerResetNvram) {
     Context->PickerCommand = PickerCommand;
