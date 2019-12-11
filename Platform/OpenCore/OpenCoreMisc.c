@@ -357,9 +357,6 @@ OcMiscBoot (
   OC_INTERFACE_PROTOCOL  *Interface;
   UINTN                  BlessOverrideSize;
   CHAR16                 **BlessOverride;
-  UINT32                 Width;
-  UINT32                 Height;
-  BOOLEAN                SetMax;
 
   //
   // Do not use our boot picker unless asked.
@@ -498,36 +495,10 @@ OcMiscBoot (
 
   OcLoadPickerHotKeys (Context);
   
-  if (Context->PickerCommand == OcPickerShowPicker) {
-    ParseConsoleMode (
-      OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
-      &Width,
-      &Height,
-      &SetMax
-      );
-
-    DEBUG ((
-      DEBUG_INFO,
-      "OC: Requested console mode is %ux%u (max: %d) from %a\n",
-      Width,
-      Height,
-      SetMax,
-      OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode)
-      ));
-
-    if (SetMax || (Width > 0 && Height > 0)) {
-      Status = SetConsoleMode (Width, Height);
-      DEBUG ((
-        EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
-        "OC: Changed console mode to %ux%u (max: %d) from %a - %r\n",
-        Width,
-        Height,
-        SetMax,
-        OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
-        Status
-        ));
-    }
-  }
+  SetConsolePicker (
+    OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
+    Context->PickerCommand == OcPickerShowPicker
+    );
   
   Context->ShowNvramReset = Config->Misc.Security.AllowNvramReset;
   if (!Config->Misc.Security.AllowNvramReset && Context->PickerCommand == OcPickerResetNvram) {
