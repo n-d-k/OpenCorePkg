@@ -472,6 +472,7 @@ OcMiscBoot (
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);
+      Context->CustomEntries[EntryIndex].Hidden    = Config->Misc.Entries.Values[Index]->Hidden;
       ++EntryIndex;
     }
   }
@@ -486,6 +487,7 @@ OcMiscBoot (
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Arguments);
+      Context->CustomEntries[EntryIndex].Hidden    = FALSE;
       ++EntryIndex;
     }
   }

@@ -590,6 +590,8 @@
 				<string>Not signed for security reasons</string>
 				<key>Enabled</key>
 				<false/>
+				<key>Hidden</key>
+				<false/>
 				<key>Name</key>
 				<string>CustomOS</string>
 				<key>Path</key>
