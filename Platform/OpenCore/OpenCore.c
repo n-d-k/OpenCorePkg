@@ -70,13 +70,27 @@ OcStartImage (
   )
 {
   EFI_STATUS   Status;
+  CHAR16       *DevicePathText;
+  
+  DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
+  
+  if (Chosen->Type == OcBootApple
+    || Chosen->Type == OcBootAppleRecovery
+    || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
+    OcLoadBooterUefiSupport (&mOpenCoreConfiguration);
+  }
+  
   
   if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
-    if (Chosen->Type == OcBootApple || Chosen->Type == OcBootAppleRecovery) {
+    if (Chosen->Type == OcBootApple
+      || Chosen->Type == OcBootAppleRecovery
+      || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
       DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for macOS...\n"));
       OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
     }
   }
+  
+  FreePool (DevicePathText);
   
   SetScreenResolution (
     OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.Resolution),

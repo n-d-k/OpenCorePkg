@@ -269,4 +269,14 @@ OcMiscUefiQuirksLoaded (
   IN OC_GLOBAL_CONFIG   *Config
   );
 
+/**
+  Load Apple booter quirks setting.
+
+  @param[in]  Config     OpenCore configuration.
+**/
+VOID
+OcLoadBooterUefiSupport (
+  IN OC_GLOBAL_CONFIG  *Config
+  );
+
 #endif // OPEN_CORE_H
