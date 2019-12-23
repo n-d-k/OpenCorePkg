@@ -20,6 +20,8 @@ Additional features implemented by this fork
 - macOS Recovery/Tools Entries are hidden by default, use Spacebar in Boot Menu as a toggle on/off to show/hide these entries.
 - Individual custom entry can now be set hidden using Misc->Entries->Item 0->Hidden (Boolean).
 - Booter Quirks only apply to macOS.
+- Custom entries are now listed first in picker menu and by the orders they are appeared in Misc->Boot->Entries, before all other entries.
+- Improved Hotkeys successful rate.
 
  Usage:
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
