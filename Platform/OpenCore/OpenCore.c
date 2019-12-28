@@ -74,20 +74,20 @@ OcStartImage (
   
   DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
   
-  if (Chosen->Type == OcBootApple
-    || Chosen->Type == OcBootAppleRecovery
+  if (Chosen->Type == OcBootApple || Chosen->Type == OcBootAppleRecovery
     || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
+    DEBUG ((DEBUG_INFO, "OC: OcLoadBooterUefiSupport...\n"));
     OcLoadBooterUefiSupport (&mOpenCoreConfiguration);
-  }
-  
-  
-  if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
-    if (Chosen->Type == OcBootApple
-      || Chosen->Type == OcBootAppleRecovery
-      || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
+    
+    if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
       DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for macOS...\n"));
       OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
     }
+    
+    DEBUG ((DEBUG_INFO, "OC: OcLoadPlatformSupport...\n"));
+    OcLoadPlatformSupport (&mOpenCoreConfiguration, &mOpenCoreCpuInfo);
+    DEBUG ((DEBUG_INFO, "OC: OcLoadDevPropsSupport...\n"));
+    OcLoadDevPropsSupport (&mOpenCoreConfiguration);
   }
   
   FreePool (DevicePathText);
@@ -155,10 +155,6 @@ OcMain (
     DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for all OSes...\n"));
     OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
   }
-  DEBUG ((DEBUG_INFO, "OC: OcLoadPlatformSupport...\n"));
-  OcLoadPlatformSupport (&mOpenCoreConfiguration, &mOpenCoreCpuInfo);
-  DEBUG ((DEBUG_INFO, "OC: OcLoadDevPropsSupport...\n"));
-  OcLoadDevPropsSupport (&mOpenCoreConfiguration);
   DEBUG ((DEBUG_INFO, "OC: OcLoadNvramSupport...\n"));
   OcLoadNvramSupport (Storage, &mOpenCoreConfiguration);
   DEBUG ((DEBUG_INFO, "OC: OcMiscLateInit...\n"));
