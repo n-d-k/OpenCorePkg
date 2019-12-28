@@ -22,6 +22,7 @@ Additional features implemented by this fork
 - Booter Quirks only apply to macOS.
 - Custom entries are now listed first in picker menu and by the orders they are appeared in Misc->Boot->Entries, before all other entries.
 - Improved Hotkeys successful rate.
+- SMBIOS and Device Properties patches are now only applied to macOS.
 
  Usage:
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
