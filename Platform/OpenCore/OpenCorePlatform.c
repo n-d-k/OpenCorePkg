@@ -345,10 +345,11 @@ OcPlatformUpdateSmbios (
     // are recognised as legacy. See:
     // https://github.com/acidanthera/bugtracker/issues/327
     // https://sourceforge.net/p/cloverefiboot/tickets/435
-    // I could imagine this being configurable, but see no issue otherwise.
     //
-    Data.FirmwareFeatures     |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE;
-    Data.FirmwareFeaturesMask |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE;
+    if (Config->PlatformInfo.Generic.SupportsCsm) {
+      Data.FirmwareFeatures     |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE;
+      Data.FirmwareFeaturesMask |= FW_FEATURE_SUPPORTS_CSM_LEGACY_MODE;
+    }
 
     Data.ProcessorType        = NULL;
     Data.PlatformFeature      = MacInfo->Smbios.PlatformFeature;

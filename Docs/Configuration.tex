@@ -2610,6 +2610,16 @@ use.
   For instance, do not put \texttt{boot-args} or \texttt{csr-active-config}, as
   this can bypass SIP.
 
+\item
+  \texttt{WriteFlash}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: Enables writing to flash memory for all added variables.
+  
+  \emph{Note}: This value is recommended to be enabled on most firmwares, but is
+  left configurable for firmwares that may have issues with NVRAM variable storage
+  garbage collection or alike.
+
 \end{enumerate}
 
 To read NVRAM variable value from macOS one could use \texttt{nvram}
@@ -2942,6 +2952,16 @@ be used. Version with macOS specific enhancements can be downloaded from
   It is dangerous to use Apple in SMBIOS vendor fields for reasons given
   in \texttt{SystemManufacturer} description. However, certain firmwares
   may not provide valid values otherwise, which could break some software.
+\item
+  \texttt{SupportsCsm}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: Forces CSM support in \texttt{FirmwareFeatures}.
+
+  Without this bit it is not possible to reboot to Windows installed on
+  a drive with EFI partition being not the first partition on the disk.
+  
+  \emph{Note}: This was enabled unconditionally in older OpenCore versions.
 \item
   \texttt{SystemProductName}\\
   \textbf{Type}: \texttt{plist\ string}\\
@@ -3494,12 +3514,13 @@ and supplementary utilities can be used.
   \item \href{https://github.com/acidanthera/AppleSupportPkg}{\texttt{ApfsDriverLoader}}
   --- APFS file system bootstrap driver adding the support of embedded APFS drivers
   in bootable APFS containers in UEFI firmwares.
-  \item \href{https://github.com/acidanthera/AppleSupportPkg}{\texttt{FwRuntimeServices}}
+  \item \href{https://github.com/acidanthera/OpenCorePkg}{\texttt{FwRuntimeServices}}
   --- \texttt{OC\_FIRMWARE\_RUNTIME} protocol implementation that increases the security
   of OpenCore and Lilu by supporting read-only and write-only NVRAM variables. Some
   quirks, like \texttt{RequestBootVarRouting}, require this driver for proper function.
   Due to the nature of being a runtime driver, i.e. functioning in parallel with the
-  target operating system, it cannot be implemented within OpenCore itself.
+  target operating system, it cannot be implemented within OpenCore itself, but is bundled
+  with OpenCore releases.
   \item \href{https://github.com/acidanthera/audk}{\texttt{EnhancedFatDxe}}
   --- FAT filesystem driver from \texttt{FatPkg}. This driver is embedded in all
   UEFI firmwares, and cannot be used from OpenCore. It is known that multiple firmwares
