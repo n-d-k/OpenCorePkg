@@ -15,7 +15,6 @@ Additional features implemented by this fork
 - Compile with latest edk2.
 - NvmExpressDxe driver build script are also available for system without native nvme support. (Compatible with OC and Clover).
 - ACPI patches is now optional for non macOS with setting ACPI->Quirks->EnableForAll to yes (default is no).
-- Boot entry can be switched and selected with Up/Down arrow and Enter keys.
 - Fixed the unmatched 1st and 2nd stages boot Apple logo (* To ensure a match, set Misc->Boot->Resolution to match with one in macOS preferences, and to better boot menu text visibility for 4k+ display, set Misc->Boot->ConsoleMode to Max).
 - macOS Recovery/Tools Entries are hidden by default, use Spacebar in Boot Menu as a toggle on/off to show/hide these entries.
 - Individual custom entry can now be set hidden using Misc->Entries->Item 0->Hidden (Boolean).
