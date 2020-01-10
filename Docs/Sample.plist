@@ -604,6 +604,8 @@
 		<dict>
 			<key>AllowNvramReset</key>
 			<false/>
+			<key>AllowSetDefault</key>
+			<false/>
 			<key>AuthRestart</key>
 			<false/>
 			<key>ExposeSensitiveData</key>
