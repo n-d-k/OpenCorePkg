@@ -503,6 +503,7 @@ OcMiscBoot (
     );
   
   Context->ShowNvramReset = Config->Misc.Security.AllowNvramReset;
+  Context->AllowSetDefault = Config->Misc.Security.AllowSetDefault;
   if (!Config->Misc.Security.AllowNvramReset && Context->PickerCommand == OcPickerResetNvram) {
     Context->PickerCommand = PickerCommand;
   }
