@@ -357,6 +357,7 @@ OcMiscBoot (
   OC_INTERFACE_PROTOCOL  *Interface;
   UINTN                  BlessOverrideSize;
   CHAR16                 **BlessOverride;
+  INTN                   HotkeyNumber;
 
   //
   // Do not use our boot picker unless asked.
@@ -495,7 +496,7 @@ OcMiscBoot (
   Context->AllCustomEntryCount = EntryIndex;
   Context->PollAppleHotKeys    = Config->Misc.Boot.PollAppleHotKeys;
 
-  OcLoadPickerHotKeys (Context);
+  HotkeyNumber = OcLoadPickerHotKeys (Context);
   
   SetConsolePicker (
     OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
@@ -511,7 +512,7 @@ OcMiscBoot (
   if (Interface != NULL) {
     Status = Interface->ShowInteface (Interface, Storage, Context);
   } else {
-    Status = OcRunSimpleBootPicker (Context);
+    Status = OcRunSimpleBootPicker (Context, HotkeyNumber);
   }
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to show boot menu!\n"));

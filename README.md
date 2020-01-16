@@ -22,6 +22,7 @@ Additional features implemented by this fork
 - Custom entries are now listed first in picker menu and by the orders they are appeared in Misc->Boot->Entries, before all other entries.
 - Improved Hotkeys successful rate.
 - SMBIOS and Device Properties patches are now only applied to macOS.
+- Boot Entry Index key 1- 9 can be used as a Hotkey in additional to previous hotkeys implementation to boot directly to that entry and skip the picker menu showing process. 
 
  Usage:
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
