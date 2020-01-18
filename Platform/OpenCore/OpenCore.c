@@ -186,7 +186,7 @@ OcMain (
 }
 
 STATIC
-VOID
+EFI_STATUS
 EFIAPI
 OcBootstrapRerun (
   IN OC_BOOTSTRAP_PROTOCOL            *This,
@@ -221,9 +221,12 @@ OcBootstrapRerun (
     }
   } else {
     DEBUG ((DEBUG_WARN, "OC: Nested ReRun is not supported\n"));
+    Status = EFI_ALREADY_STARTED;
   }
 
   --This->NestedCount;
+
+  return Status;
 }
 
 STATIC
