@@ -2,27 +2,38 @@
 
 [![Build Status](https://travis-ci.com/acidanthera/OpenCorePkg.svg?branch=master)](https://travis-ci.com/acidanthera/OpenCorePkg) [![Scan Status](https://scan.coverity.com/projects/18169/badge.svg?flat=1)](https://scan.coverity.com/projects/18169)
 -----
-Additional features implemented by this fork
+Additional features/changes implemented by this fork
 ============
 
-  OpenCore bootloader front end.
+[ Multi-Boot ]
+         
+         - ACPI patches are optional for non macOS with setting ACPI->Quirks->EnableForAll to yes (default is no).
+         - Booter Quirtks, SMBIOS and Device Properties patches will only applied to macOS.
+ 
+[ Hotkeys ]
+ 
+         - Full functional Hotkeys [1-9] corresponding to Boot Entry's Index number and dedicated W (Windows) / X (macOS) keys can be used without seeing Boot Picker.
+          
+[ Boot Picker ]
+  
+          - Bios Date/time, auto boot to the same OS or manual set to always boot one OS mode, and OC version are displayed in boot picker.
+          - Auto boot to previous booted OS (if Misc->Security->AllowSetDefault is NO/false).
+          - macOS Recovery/Tools Entries are hidden by default, use Spacebar in Boot Menu as a toggle on/off to show/hide hidden entries.
+          
+[ Custom Entries ]
+ 
+          - Custom entries are now listed first in picker menu and by the orders they are appeared in Misc->Boot->Entries, before all other entries.
+          - Individual custom entry can be set hidden using Misc->Entries->Item 0->Hidden (Boolean).
+          - Ability to change entry name found by auto scanner by adding custom entry with the exact same device path, this will give users the option to complete change how all boot entries listed in Boot Picker.
+    
+[ Others ]
 
-- Hotkey W to boot directly to first available Windows boot entry from either auto scanner or custom entries. (Hold down W to boot Windows OS directly).
-- Auto boot to last booted OS entry (if Misc->Security->AllowSetDefault is NO/false).
-- No verbose apfs.efi driver loading (if using apfs.efi instead of ApfsDriverLoader.efi).
-- Avoid duplicated entry in boot menu, cusstom entry will not be added to boot menu if the same entry already found by auto scanner.
-- Ability to change entry name found by auto scanner by adding custom entry with the exact same device path.
-- Compile with latest edk2.
-- NvmExpressDxe driver build script are also available for system without native nvme support. (Compatible with OC and Clover).
-- ACPI patches is now optional for non macOS with setting ACPI->Quirks->EnableForAll to yes (default is no).
-- Fixed the unmatched 1st and 2nd stages boot Apple logo (* To ensure a match, set Misc->Boot->Resolution to match with one in macOS preferences, and to better boot menu text visibility for 4k+ display, set Misc->Boot->ConsoleMode to Max).
-- macOS Recovery/Tools Entries are hidden by default, use Spacebar in Boot Menu as a toggle on/off to show/hide these entries.
-- Individual custom entry can now be set hidden using Misc->Entries->Item 0->Hidden (Boolean).
-- Booter Quirks only apply to macOS.
-- Custom entries are now listed first in picker menu and by the orders they are appeared in Misc->Boot->Entries, before all other entries.
-- Improved Hotkeys successful rate.
-- SMBIOS and Device Properties patches are now only applied to macOS.
-- Boot Entry Index key 1- 9 can be used as a Hotkey in additional to previous hotkeys implementation to boot directly to that entry and skip the picker menu showing process. 
+          - No verbose apfs.efi driver loading (if using apfs.efi instead of ApfsDriverLoader.efi).
+          - Fixed the unmatched 1st and 2nd stages boot Apple logo (* To ensure a match, set Misc->Boot->Resolution to match with one in macOS preferences, and to better boot menu text visibility for 4k+ display, set Misc->Boot->ConsoleMode to Max).
+          - ndk-macbuild.tool script are set to compile with latest edk2 (One can easily set to stable edk2 if prefer).
+          - NvmExpressDxe driver build script are also available for system without native nvme support. (Compatible with OC and Clover).
+
+
 
  Usage:
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
