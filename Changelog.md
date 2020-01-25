@@ -10,6 +10,9 @@ OpenCore Changelog
 - Improved driver connection performance on APTIO IV
 - Fixed boot option saving in LogoutHook.command
 - Added support for OEM information in `ExposeSensitiveData`
+- Improved `SanitiseClearScreen` to avoid mode switching
+- Replaced `SupportsCsm` with `AdviseWindows` enabling UEFI mode
+- Fixed issues with default boot path selection on some boards
 
 #### v0.5.4
 - Added Enter key handling in boot menu for quick proceed
