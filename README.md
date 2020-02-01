@@ -14,8 +14,8 @@ Additional features/changes implemented by this fork
  
          - Full functional Hotkeys [1-9] corresponding to Boot Entry's Index number and dedicated W (Windows) / X (macOS) keys can be used without seeing Boot Picker.
           
-[ Boot Picker ]
-  
+[ Ui Boot Picker ]
+              
           - Bios Date/time, auto boot to the same OS or manual set to always boot one OS mode, and OC version are displayed in boot picker.
           - Auto boot to previous booted OS (if Misc->Security->AllowSetDefault is NO/false).
           - macOS Recovery/Tools Entries are hidden by default, use Spacebar in Boot Menu as a toggle on/off to show/hide hidden entries.

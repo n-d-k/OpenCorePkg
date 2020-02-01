@@ -51,6 +51,7 @@ package() {
   mkdir -p tmp/EFI/OC || exit 1
   mkdir -p tmp/EFI/OC/ACPI || exit 1
   mkdir -p tmp/EFI/OC/Drivers || exit 1
+  mkdir -p tmp/EFI/OC/Icons || exit 1
   mkdir -p tmp/EFI/OC/Kexts || exit 1
   mkdir -p tmp/EFI/OC/Tools || exit 1
   mkdir -p tmp/EFI/BOOT || exit 1
@@ -70,6 +71,7 @@ package() {
   cp "${selfdir}/Docs/SampleFull.plist" tmp/Docs/ || exit 1
   cp "${selfdir}/Changelog.md" tmp/Docs/ || exit 1
   cp -r "${selfdir}/Docs/AcpiSamples/" tmp/Docs/AcpiSamples/ || exit 1
+  cp -r "${selfdir}/Icons/" tmp/EFI/OC/Icons/ || exit 1
   cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/BootInstall" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/CreateVault" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/LogoutHook" tmp/Utilities/ || exit 1
