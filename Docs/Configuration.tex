@@ -2110,9 +2110,9 @@ behaviour that does not go to any other sections
   \texttt{PollAppleHotKeys}\\
   \textbf{Type}: \texttt{plist\ boolean}\\
   \textbf{Failsafe}: \texttt{false}\\
-  \textbf{Description}: Enable modifier hotkey handling in boot picker.
+  \textbf{Description}: Enable \texttt{modifier hotkey} handling in boot picker.
 
-  In addition to action hotkeys, which are partially described in \texttt{UsePicker}
+  In addition to \texttt{action hotkeys}, which are partially described in \texttt{UsePicker}
   section and are normally handled by Apple BDS, there exist modifier keys, which are
   handled by operating system bootloader, namely \texttt{boot.efi}. These keys
   allow to change operating system behaviour by providing different boot modes.
@@ -2122,7 +2122,7 @@ behaviour that does not go to any other sections
   permissive manner from within boot picker. Such extensions include the support
   of tapping on keys in addition to holding and pressing \texttt{Shift} along with
   other keys instead of just \texttt{Shift} alone, which is not detectible on many
-  PS/2 keyboards. This list of known hotkeys includes:
+  PS/2 keyboards. This list of known \texttt{modifier hotkeys} includes:
   \begin{itemize}
   \tightlist
   \item \texttt{CMD+C+MINUS} --- disable board compatibility checking.
@@ -2164,6 +2164,18 @@ behaviour that does not go to any other sections
   \textbf{Description}: Show simple boot picker to allow boot entry selection.
 
 \item
+  \texttt{TakeoffDelay}\\
+  \textbf{Type}: \texttt{plist\ integer}, 32 bit\\
+  \textbf{Failsafe}: \texttt{0}\\
+  \textbf{Description}: Delay in microseconds performed before handling
+  picker startup and \texttt{action hotkeys}.
+
+  Introducing a delay may give extra time to hold the right \texttt{action hotkey}
+  sequence to e.g. boot to recovery mode. On some platforms setting this option to
+  at least \texttt{5000-10000} microseconds may be necessary to access
+  \texttt{action hotkeys} at all due to the nature of the keyboard driver.
+
+\item
   \texttt{Timeout}\\
   \textbf{Type}: \texttt{plist\ integer}, 32 bit\\
   \textbf{Failsafe}: \texttt{0}\\
@@ -2185,8 +2197,9 @@ behaviour that does not go to any other sections
   test driver.
 
   OpenCore built-in boot picker contains a set of actions chosen during the boot process.
-  The list of supported actions is similar to Apple BDS and currently consists of the following
-  options:
+  The list of supported actions is similar to Apple BDS and in general can be accessed by
+  holding \texttt{action hotkeys} during boot process. Currently the following actions are
+  considered:
 
   \begin{itemize}
   \tightlist
@@ -2209,7 +2222,7 @@ behaviour that does not go to any other sections
   recovery. Hold \texttt{CMD+R} key combination to choose this option.
   \end{itemize}
 
-  \emph{Note}: activated \texttt{KeySupport}, \texttt{AppleUsbKbDxe}, or similar driver is required
+  \emph{Note}: Activated \texttt{KeySupport}, \texttt{AppleUsbKbDxe}, or similar driver is required
   for key handling to work. On many firmwares it is not possible to get all the keys function.
 
   In addition to \texttt{OPT} OpenCore supports \texttt{Escape} key
@@ -3617,11 +3630,16 @@ and supplementary utilities can be used.
   \texttt{ConnectDrivers}\\
   \textbf{Type}: \texttt{plist\ boolean}\\
   \textbf{Failsafe}: \texttt{false}\\
-  \textbf{Description}: Perform UEFI controller connection after driver
-  loading. This option is useful for loading filesystem drivers, which
+  \textbf{Description}: Perform UEFI controller connection after driver loading.
+
+  This option is useful for loading filesystem drivers, which
   usually follow UEFI driver model, and may not start by themselves.
   While effective, this option may not be necessary for drivers performing
   automatic connection, and may slightly slowdown the boot.
+
+  \emph{Note}: Some firmwares, made by Apple in particular, only connect the boot
+  drive to speedup the boot process. Enable this option to be able to see all the
+  boot options when having multiple drives.
 
 \item
   \texttt{Drivers}\\
@@ -3835,13 +3853,16 @@ build -a X64 -b RELEASE -t XCODE5 -p MdeModulePkg/MdeModulePkg.dsc
   \textbf{Description}: Reinstalls Apple Boot Policy protocol with a builtin
   version. This may be used to ensure APFS compatibility on VMs or legacy Macs.
 
+  \emph{Note}: Some Macs like MacPro5,1 do have APFS compatibility, but their
+  Apple Boot Policy protocol contains recovery detection issues, thus using
+  this option is advised on them as well. 
+
 \item
   \texttt{AppleEvent}\\
   \textbf{Type}: \texttt{plist\ boolean}\\
   \textbf{Failsafe}: \texttt{false}\\
   \textbf{Description}: Reinstalls Apple Event protocol with a builtin
   version. This may be used to ensure File Vault 2 compatibility on VMs or legacy Macs.
-
 
 \item
   \texttt{AppleImageConversion}\\
@@ -4353,7 +4374,8 @@ you will need \texttt{debug=0x8} boot argument.
 
   For offline installation refer to
   \href{https://support.apple.com/HT201372}{How to create a bootable installer for macOS}
-  article.
+  article. Apart from App Store and \texttt{softwareupdate} utility there also are
+  \href{https://github.com/corpnewt/gibMacOS}{third-party tools} to download an offline image.
 
 \item
   \textbf{Why do online recovery images (\texttt{*.dmg}) fail to load?}
