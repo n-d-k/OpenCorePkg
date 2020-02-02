@@ -16,6 +16,9 @@ OpenCore Changelog
 - Update builtin firmware versions
 - Fixed `AdviseWindows` not setting `FirmwareFeatures` in NVRAM
 - Added `TakeoffDelay` option for improved action hotkey support
+- Added Mac GOP support to `ProvideConsoleGop` quirk
+- Added experimental `BuiltinTextRenderer` boot option
+- Added `DummyPowerManagement` kernel quirk to disable CPU PM
 
 #### v0.5.4
 - Added Enter key handling in boot menu for quick proceed
