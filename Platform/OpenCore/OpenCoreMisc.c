@@ -365,6 +365,7 @@ OcMiscBoot (
   EFI_STATUS             Status;
   OC_PICKER_CONTEXT      *Context;
   OC_PICKER_CMD          PickerCommand;
+  OC_PICKER_MODE         PickerMode;
   UINTN                  ContextSize;
   UINT32                 Index;
   UINT32                 EntryIndex;
@@ -372,11 +373,24 @@ OcMiscBoot (
   UINTN                  BlessOverrideSize;
   CHAR16                 **BlessOverride;
   INTN                   HotkeyNumber;
+  CONST CHAR8            *AsciiPicker;
 
+  AsciiPicker = OC_BLOB_GET (&Config->Misc.Boot.PickerMode);
+
+  if (AsciiStrCmp (AsciiPicker, "Builtin") == 0) {
+    PickerMode = OcPickerModeBuiltin;
+  } else if (AsciiStrCmp (AsciiPicker, "External") == 0) {
+    PickerMode = OcPickerModeExternal;
+  } else if (AsciiStrCmp (AsciiPicker, "Apple") == 0) {
+    PickerMode = OcPickerModeApple;
+  } else {
+    DEBUG ((DEBUG_WARN, "OC: Unknown PickirMode: %a, using builtin\n", AsciiPicker));
+    PickerMode = OcPickerModeBuiltin;
+  }
   //
   // Do not use our boot picker unless asked.
   //
-  if (!Config->Misc.Boot.UsePicker) {
+  if (PickerMode == OcPickerModeExternal) {
     DEBUG ((DEBUG_INFO, "OC: Handing off to external boot controller\n"));
 
     Status = gBS->LocateProtocol (
@@ -384,19 +398,19 @@ OcMiscBoot (
       NULL,
       (VOID **) &Interface
       );
-    if (EFI_ERROR (Status)) {
+    if (!EFI_ERROR (Status)) {
+      if (Interface->Revision != OC_INTERFACE_REVISION) {
+        DEBUG ((
+          DEBUG_INFO,
+          "OC: Incompatible external GUI protocol - %u vs %u\n",
+          Interface->Revision,
+          OC_INTERFACE_REVISION
+          ));
+        Interface = NULL;
+      }
+    } else {
       DEBUG ((DEBUG_INFO, "OC: Missing external GUI protocol - %r\n", Status));
-      return;
-    }
-
-    if (Interface->Revision != OC_INTERFACE_REVISION) {
-      DEBUG ((
-        DEBUG_INFO,
-        "OC: Incompatible external GUI protocol - %u vs %u\n",
-        Interface->Revision,
-        OC_INTERFACE_REVISION
-        ));
-      return;
+      Interface = NULL;
     }
   } else {
     Interface = NULL;
@@ -471,6 +485,7 @@ OcMiscBoot (
   Context->CustomRead         = OcToolLoadEntry;
   Context->PrivilegeContext   = Privilege;
   Context->RequestPrivilege   = OcShowSimplePasswordRequest;
+  Context->PickerMode         = PickerMode;
   Context->ConsoleAttributes  = Config->Misc.Boot.PickerAttributes;
 
   if ((Config->Misc.Security.ExposeSensitiveData & OCS_EXPOSE_VERSION_UI) != 0) {

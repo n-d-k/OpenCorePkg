@@ -585,6 +585,8 @@
 		<dict>
 			<key>HibernateMode</key>
 			<string>None</string>
+			<key>PickerMode</key>
+			<string>Builtin</string>
 			<key>HideSelf</key>
 			<true/>
 			<key>PickerAttributes</key>
@@ -597,8 +599,6 @@
 			<integer>0</integer>
 			<key>Timeout</key>
 			<integer>5</integer>
-			<key>UsePicker</key>
-			<true/>
 		</dict>
 		<key>Debug</key>
 		<dict>
@@ -912,7 +912,9 @@
 			<key>IgnoreTextInGraphics</key>
 			<false/>
 			<key>ProvideConsoleGop</key>
-			<false/>
+			<true/>
+			<key>ProvideEarlyConsole</key>
+			<true/>
 			<key>ReconnectOnResChange</key>
 			<false/>
 			<key>ReplaceTabWithSpace</key>
