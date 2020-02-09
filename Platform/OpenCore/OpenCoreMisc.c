@@ -194,6 +194,8 @@ OcMiscEarlyInit (
   CHAR8                     *ConfigData;
   UINT32                    ConfigDataSize;
   EFI_TIME                  BootTime;
+  CONST CHAR8               *AsciiVault;
+  OCS_VAULT_MODE            Vault;
 
   ConfigData = OcStorageReadFileUnicode (
     Storage,
@@ -218,16 +220,29 @@ OcMiscEarlyInit (
     return EFI_UNSUPPORTED; ///< Should be unreachable.
   }
 
+  AsciiVault = OC_BLOB_GET (&Config->Misc.Security.Vault);
+  if (AsciiStrCmp (AsciiVault, "Secure") == 0) {
+    Vault = OcsVaultSecure;
+  } else if (AsciiStrCmp (AsciiVault, "Optional") == 0) {
+    Vault = OcsVaultOptional;
+  } else if (AsciiStrCmp (AsciiVault, "Basic") == 0) {
+    Vault = OcsVaultBasic;
+  } else {
+    DEBUG ((DEBUG_ERROR, "OC: Invalid Vault mode: %a\n", AsciiVault));
+    CpuDeadLoop ();
+    return EFI_UNSUPPORTED; ///< Should be unreachable.
+  }
+
   //
   // Sanity check that the configuration is adequate.
   //
-  if (!Storage->HasVault && Config->Misc.Security.RequireVault) {
+  if (!Storage->HasVault && Vault >= OcsVaultBasic) {
     DEBUG ((DEBUG_ERROR, "OC: Configuration requires vault but no vault provided!\n"));
     CpuDeadLoop ();
     return EFI_SECURITY_VIOLATION; ///< Should be unreachable.
   }
 
-  if (VaultKey == NULL && Config->Misc.Security.RequireSignature) {
+  if (VaultKey == NULL && Vault >= OcsVaultSecure) {
     DEBUG ((DEBUG_ERROR, "OC: Configuration requires signed vault but no public key provided!\n"));
     CpuDeadLoop ();
     return EFI_SECURITY_VIOLATION; ///< Should be unreachable.
@@ -251,11 +266,11 @@ OcMiscEarlyInit (
 
   DEBUG ((
     DEBUG_INFO,
-    "OC: OpenCore is now loading (Vault: %d/%d, Sign %d/%d)...\n",
+    "OC: OpenCore %a is loading in %a mode (%d/%d)...\n",
+    OcMiscGetVersionString (),
+    AsciiVault,
     Storage->HasVault,
-    Config->Misc.Security.RequireVault,
-    VaultKey != NULL,
-    Config->Misc.Security.RequireSignature
+    VaultKey != NULL
     ));
 
   Status = gRT->GetTime (&BootTime, NULL);
@@ -314,10 +329,6 @@ OcMiscLateInit (
     }
   }
 
-  if (Config->Misc.Boot.BuiltinTextRenderer) {
-    OcInstallCustomConOut ();
-  }
-
   HibernateMode = OC_BLOB_GET (&Config->Misc.Boot.HibernateMode);
 
   if (AsciiStrCmp (HibernateMode, "None") == 0) {
@@ -337,7 +348,6 @@ OcMiscLateInit (
 
   HibernateStatus = OcActivateHibernateWake (HibernateMask);
   DEBUG ((DEBUG_INFO, "OC: Hibernation detection status is %r\n", HibernateStatus));
-  (VOID) HibernateStatus;
 
   return Status;
 }
@@ -461,6 +471,7 @@ OcMiscBoot (
   Context->CustomRead         = OcToolLoadEntry;
   Context->PrivilegeContext   = Privilege;
   Context->RequestPrivilege   = OcShowSimplePasswordRequest;
+  Context->ConsoleAttributes  = Config->Misc.Boot.PickerAttributes;
 
   if ((Config->Misc.Security.ExposeSensitiveData & OCS_EXPOSE_VERSION_UI) != 0) {
     Context->TitleSuffix      = OcMiscGetVersionString ();
@@ -502,11 +513,6 @@ OcMiscBoot (
 
   HotkeyNumber = OcLoadPickerHotKeys (Context);
   
-  SetConsolePicker (
-    OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
-    Context->PickerCommand == OcPickerShowPicker
-    );
-  
   Context->ShowNvramReset = Config->Misc.Security.AllowNvramReset;
   Context->AllowSetDefault = Config->Misc.Security.AllowSetDefault;
   if (!Config->Misc.Security.AllowNvramReset && Context->PickerCommand == OcPickerResetNvram) {
@@ -546,21 +552,4 @@ OcMiscUefiQuirksLoaded (
     sizeof (Config->Misc.Security.ScanPolicy),
     &Config->Misc.Security.ScanPolicy
     );
-
-  //
-  // Regardless of the mode ensure our cursor is disabled as we do not need it.
-  // This is a bit ugly, but works for most platforms we have:
-  // - Firstly disable it on platforms that start with it for whatever reason.
-  //   Generally Insyde laptops are happy with that.
-  // - Secondly change the mode, on APTIO it may reenable the cursor in Text mode.
-  // - Thirdly disable it again to ensure it is definitely disabled.
-  //
-
-  OcConsoleDisableCursor ();
-  OcConsoleControlSetBehaviour (
-    ParseConsoleControlBehaviour (
-      OC_BLOB_GET (&Config->Misc.Boot.ConsoleBehaviourUi)
-      )
-    );
-  OcConsoleDisableCursor ();
 }

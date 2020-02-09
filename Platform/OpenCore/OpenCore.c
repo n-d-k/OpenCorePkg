@@ -69,8 +69,9 @@ OcStartImage (
   OUT CHAR16                      **ExitData    OPTIONAL
   )
 {
-  EFI_STATUS   Status;
-  CHAR16       *DevicePathText;
+  EFI_STATUS                       Status;
+  EFI_CONSOLE_CONTROL_SCREEN_MODE  OldMode;
+  CHAR16                           *DevicePathText;
   
   DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
   
@@ -91,17 +92,8 @@ OcStartImage (
   }
   
   FreePool (DevicePathText);
-  
-  SetScreenResolution (
-    OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.Resolution),
-    mOpenCoreConfiguration.Uefi.Quirks.ReconnectOnResChange
-    );
-  
-  OcConsoleControlSetBehaviour (
-    ParseConsoleControlBehaviour (
-      OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.ConsoleBehaviourOs)
-      )
-    );
+
+  OldMode = OcConsoleControlSetMode (EfiConsoleControlScreenGraphics);
 
   Status = gBS->StartImage (
     ImageHandle,
@@ -113,14 +105,7 @@ OcStartImage (
     DEBUG ((DEBUG_WARN, "OC: Boot failed - %r\n", Status));
   }
 
-  //
-  // Restore ui mode.
-  //
-  OcConsoleControlSetBehaviour (
-    ParseConsoleControlBehaviour (
-      OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.ConsoleBehaviourUi)
-      )
-    );
+  OcConsoleControlSetMode (OldMode);
 
   return Status;
 }
