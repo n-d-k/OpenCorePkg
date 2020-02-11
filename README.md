@@ -12,7 +12,7 @@ Additional features/changes implemented by this fork
  
 [ Hotkeys ]
  
-         - Full functional Hotkeys [1-9] corresponding to Boot Entry's Index number and dedicated W (Windows) / X (macOS) keys can be used without seeing Boot Picker.
+         - Full functional Hotkeys [1-9] corresponding to Boot Entry's Index number and dedicated W (Windows) / X (macOS) keys can be used without seeing Boot Picker. While in boot picker, F10 can use to take a snapshot of the screen.
           
 [ Ui Boot Picker ]
               
