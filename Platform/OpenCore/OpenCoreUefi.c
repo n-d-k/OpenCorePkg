@@ -471,6 +471,10 @@ OcLoadUefiOutputSupport (
       ));
   }
 
+  if (Config->Uefi.Output.DirectGopRendering) {
+    OcUseDirectGop ();
+  }
+
   if (Config->Uefi.Output.ReconnectOnResChange) {
     OcReconnectConsole ();
   }
@@ -498,10 +502,6 @@ OcLoadUefiOutputSupport (
     Config->Uefi.Output.ClearScreenOnModeSwitch,
     Config->Uefi.Output.ReplaceTabWithSpace
     );
-
-  if (Config->Uefi.Output.ProvideEarlyConsole) {
-    OcConsoleControlSetMode (EfiConsoleControlScreenText);
-  }
 
   OcParseConsoleMode (
     OC_BLOB_GET (&Config->Uefi.Output.ConsoleMode),
@@ -695,7 +695,6 @@ OcLoadUefiSupport (
     OcUnblockUnmountedPartitions ();
   }
 
-  OcLoadUefiOutputSupport (Config);
   OcMiscUefiQuirksLoaded (Config);
 
   if (Config->Uefi.ConnectDrivers) {
@@ -712,4 +711,6 @@ OcLoadUefiSupport (
   } else {
     OcLoadDrivers (Storage, Config, NULL);
   }
+
+  OcLoadUefiOutputSupport (Config);
 }
