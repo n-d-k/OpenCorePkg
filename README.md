@@ -28,7 +28,6 @@ Additional features/changes implemented by this fork
 [ Others ]
 
           - No verbose apfs.efi driver loading (if using apfs.efi instead of ApfsDriverLoader.efi).
-          - Fixed the unmatched 1st and 2nd stages boot Apple logo (* To ensure a match, set Misc->Boot->Resolution to match with one in macOS preferences, and to better boot menu text visibility for 4k+ display, set Misc->Boot->ConsoleMode to Max).
           - ndk-macbuild.tool script are set to compile with latest edk2 (One can easily set to stable edk2 if prefer).
           - NvmExpressDxe driver build script are also available for system without native nvme support. (Compatible with OC and Clover).
 
