@@ -23,7 +23,6 @@ Additional features/changes implemented by this fork
 [ Custom Entries ]
  
           - Custom entries are now listed first in picker menu and by the orders they are appeared in Misc->Boot->Entries, before all other entries.
-          - Individual custom entry can be set hidden using Misc->Entries->Item 0->Hidden (Boolean).
           - Ability to change entry name found by auto scanner by adding custom entry with the exact same device path, this will give users the option to complete change how all boot entries listed in Boot Picker.
     
 [ Others ]

@@ -496,7 +496,6 @@ OcLoadUefiOutputSupport (
 
   OcSetupConsole (
     Renderer,
-    Config->Uefi.Output.Scale,
     Config->Uefi.Output.IgnoreTextInGraphics,
     Config->Uefi.Output.SanitiseClearScreen,
     Config->Uefi.Output.ClearScreenOnModeSwitch,

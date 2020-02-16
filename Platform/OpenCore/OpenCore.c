@@ -134,14 +134,14 @@ OcMain (
 
   OcCpuScanProcessor (&mOpenCoreCpuInfo);
 
+  DEBUG ((DEBUG_INFO, "OC: OcLoadNvramSupport...\n"));
+  OcLoadNvramSupport (Storage, &mOpenCoreConfiguration);
   DEBUG ((DEBUG_INFO, "OC: OcLoadUefiSupport...\n"));
   OcLoadUefiSupport (Storage, &mOpenCoreConfiguration, &mOpenCoreCpuInfo);
   if (mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
     DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for all OSes...\n"));
     OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
   }
-  DEBUG ((DEBUG_INFO, "OC: OcLoadNvramSupport...\n"));
-  OcLoadNvramSupport (Storage, &mOpenCoreConfiguration);
   DEBUG ((DEBUG_INFO, "OC: OcMiscLateInit...\n"));
   OcMiscLateInit (&mOpenCoreConfiguration, LoadPath, &LoadHandle);
   DEBUG ((DEBUG_INFO, "OC: OcLoadKernelSupport...\n"));

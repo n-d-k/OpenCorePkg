@@ -79,7 +79,9 @@ OcToolLoadEntry (
   IN  OC_BOOT_ENTRY               *ChosenEntry,
   OUT VOID                        **Data,
   OUT UINT32                      *DataSize,
-  OUT EFI_DEVICE_PATH_PROTOCOL    **DevicePath OPTIONAL
+  OUT EFI_DEVICE_PATH_PROTOCOL    **DevicePath         OPTIONAL,
+  OUT EFI_HANDLE                  *ParentDeviceHandle  OPTIONAL,
+  OUT EFI_DEVICE_PATH_PROTOCOL    **ParentFilePath     OPTIONAL
   )
 {
   CHAR16              ToolPath[64];
@@ -110,6 +112,14 @@ OcToolLoadEntry (
 
   if (DevicePath != NULL) {
     *DevicePath = Storage->DummyDevicePath;
+  }
+
+  if (ParentDeviceHandle != NULL) {
+    *ParentDeviceHandle = Storage->StorageHandle;
+  }
+
+  if (ParentFilePath != NULL) {
+    *ParentFilePath = Storage->DummyFilePath;
   }
 
   return EFI_SUCCESS;
@@ -503,7 +513,7 @@ OcMiscBoot (
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);
-      Context->CustomEntries[EntryIndex].Hidden    = Config->Misc.Entries.Values[Index]->Hidden;
+      Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Entries.Values[Index]->Auxiliary;
       ++EntryIndex;
     }
   }
@@ -518,13 +528,14 @@ OcMiscBoot (
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Arguments);
-      Context->CustomEntries[EntryIndex].Hidden    = TRUE;
+      Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Tools.Values[Index]->Auxiliary;
       ++EntryIndex;
     }
   }
 
   Context->AllCustomEntryCount = EntryIndex;
   Context->PollAppleHotKeys    = Config->Misc.Boot.PollAppleHotKeys;
+  Context->HideAuxiliary       = Config->Misc.Boot.HideAuxiliary;
 
   HotkeyNumber = OcLoadPickerHotKeys (Context);
   
