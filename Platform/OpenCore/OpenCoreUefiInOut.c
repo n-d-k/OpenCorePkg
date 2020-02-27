@@ -45,7 +45,47 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
-BOOLEAN
+STATIC
+VOID
+EFIAPI
+OcExitBootServicesInputHandler (
+  IN EFI_EVENT    Event,
+  IN VOID         *Context
+  )
+{
+  EFI_STATUS        Status;
+  OC_GLOBAL_CONFIG  *Config;
+
+  Config = Context;
+
+  if (Config->Uefi.Input.TimerResolution != 0) {
+    Status = OcAppleGenericInputTimerQuirkExit ();
+    DEBUG ((
+      DEBUG_INFO,
+      "OC: OcAppleGenericInputTimerQuirkExit status - %r\n",
+      Status
+      ));
+  }
+
+  if (Config->Uefi.Input.PointerSupport) {
+    Status = OcAppleGenericInputPointerExit ();
+    DEBUG ((DEBUG_INFO,
+      "OC: OcAppleGenericInputPointerExit status - %r\n",
+      Status
+      ));
+  }
+
+  if (Config->Uefi.Input.KeySupport) {
+    Status = OcAppleGenericInputKeycodeExit ();
+    DEBUG ((
+      DEBUG_INFO,
+      "OC: OcAppleGenericInputKeycodeExit status - %r\n",
+      Status
+      ));
+  }
+}
+
+VOID
 OcLoadUefiInputSupport (
   IN OC_GLOBAL_CONFIG  *Config
   )
@@ -57,6 +97,7 @@ OcLoadUefiInputSupport (
   OC_INPUT_POINTER_MODE PointerMode;
   OC_INPUT_KEY_MODE     KeyMode;
   CONST CHAR8           *KeySupportStr;
+  EFI_EVENT             Event;
 
   ExitBs = FALSE;
 
@@ -119,7 +160,15 @@ OcLoadUefiInputSupport (
     }
   }
 
-  return ExitBs;
+  if (ExitBs) {
+    gBS->CreateEvent (
+      EVT_SIGNAL_EXIT_BOOT_SERVICES,
+      TPL_NOTIFY,
+      OcExitBootServicesInputHandler,
+      Config,
+      &Event
+      );
+  }
 }
 
 VOID
