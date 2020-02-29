@@ -2045,7 +2045,7 @@ OcShowSimpleBootMenu (
     if (!PlayedOnce && Context->PickerAudioAssist) {
       OcPlayAudioFile (Context, OcVoiceOverAudioFileChooseOS, FALSE);
       for (Index = 0; Index < VisibleIndex; ++Index) {
-        OcPlayAudioEntry (Context, &BootEntries[VisibleList[Index]], 1 + (UINT32) (&BootEntries[VisibleList[Index]] - BootEntries));
+        OcPlayAudioEntry (Context, &BootEntries[VisibleList[Index]], 1 + (UINT32) Index);
         if (DefaultEntry == VisibleList[Index] && TimeOutSeconds > 0) {
           OcPlayAudioFile (Context, OcVoiceOverAudioFileDefault, FALSE);
         }
@@ -2077,7 +2077,7 @@ OcShowSimpleBootMenu (
           if (SetDefault) {
             OcPlayAudioFile (Context, OcVoiceOverAudioFileSelected, FALSE);
             OcPlayAudioFile (Context, OcVoiceOverAudioFileDefault, FALSE);
-            OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) (&BootEntries[DefaultEntry] - BootEntries));
+            OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) Selected);
           }
           Status = OcSetDefaultBootEntry (Context, &BootEntries[DefaultEntry]);
           DEBUG ((DEBUG_INFO, "OCSBM: Setting default - %r\n", Status));
@@ -2113,7 +2113,7 @@ OcShowSimpleBootMenu (
         TimeOutSeconds = 0;
         if (PlayChosen) {
           OcPlayAudioFile (Context, OcVoiceOverAudioFileSelected, FALSE);
-          OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) (&BootEntries[DefaultEntry] - BootEntries));
+          OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) Index);
         }
       } else if (KeyIndex == OC_INPUT_DOWN) {
         SwitchIconSelection (VisibleIndex, Selected, FALSE);
@@ -2129,7 +2129,7 @@ OcShowSimpleBootMenu (
         TimeOutSeconds = 0;
         if (PlayChosen) {
           OcPlayAudioFile (Context, OcVoiceOverAudioFileSelected, FALSE);
-          OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) (&BootEntries[DefaultEntry] - BootEntries));
+          OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) Selected);
         }
       } else if (KeyIndex != OC_INPUT_INVALID && (UINTN)KeyIndex < VisibleIndex) {
         ASSERT (KeyIndex >= 0);
@@ -2146,7 +2146,7 @@ OcShowSimpleBootMenu (
           if (SetDefault) {
             OcPlayAudioFile (Context, OcVoiceOverAudioFileSelected, FALSE);
             OcPlayAudioFile (Context, OcVoiceOverAudioFileDefault, FALSE);
-            OcPlayAudioEntry (Context, &BootEntries[VisibleList[KeyIndex]], 1 + (UINT32) (&BootEntries[VisibleList[KeyIndex]] - BootEntries));
+            OcPlayAudioEntry (Context, &BootEntries[VisibleList[KeyIndex]], 1 + Selected);
           }
           Status = OcSetDefaultBootEntry (Context, &BootEntries[VisibleList[KeyIndex]]);
           DEBUG ((DEBUG_INFO, "OCSBM: Setting default - %r\n", Status));
