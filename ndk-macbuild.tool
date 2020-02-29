@@ -170,7 +170,6 @@ updaterepo "https://github.com/tianocore/edk2.git" edk2 master || exit 1
 cd edk2
 updaterepo "https://github.com/acidanthera/EfiPkg" EfiPkg master || exit 1
 updaterepo "https://github.com/acidanthera/MacInfoPkg" MacInfoPkg master || exit 1
-updaterepo "https://github.com/n-d-k/NvmExpressDxePkg.git" NvmExpressDxePkg master || exit 1
 
 if [ ! -d OpenCorePkg ]; then
   ln -s .. OpenCorePkg || exit 1
