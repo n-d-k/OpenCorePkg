@@ -75,9 +75,9 @@ package() {
   cp "${selfdir}/Changelog.md" tmp/Docs/ || exit 1
   cp -r "${selfdir}/Docs/AcpiSamples/" tmp/Docs/AcpiSamples/ || exit 1
   cp -r "${selfdir}/Icons/" tmp/EFI/OC/Icons/ || exit 1
-  cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/BootInstall" tmp/Utilities/ || exit 1
-  cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/CreateVault" tmp/Utilities/ || exit 1
-  cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/LogoutHook" tmp/Utilities/ || exit 1
+  cp -r "${selfdir}/Utilities/BootInstall" tmp/Utilities/ || exit 1
+  cp -r "${selfdir}/Utilities/CreateVault" tmp/Utilities/ || exit 1
+  cp -r "${selfdir}/Utilities/LogoutHook" tmp/Utilities/ || exit 1
   pushd tmp || exit 1
   zip -qry -FS ../"OpenCore-${ver}-${2}.zip" * || exit 1
   popd || exit 1
@@ -170,7 +170,6 @@ updaterepo "https://github.com/tianocore/edk2.git" edk2 master || exit 1
 cd edk2
 updaterepo "https://github.com/acidanthera/EfiPkg" EfiPkg master || exit 1
 updaterepo "https://github.com/acidanthera/MacInfoPkg" MacInfoPkg master || exit 1
-updaterepo "https://github.com/n-d-k/OcSupportPkg.git" OcSupportPkg master || exit 1
 updaterepo "https://github.com/n-d-k/NvmExpressDxePkg.git" NvmExpressDxePkg master || exit 1
 
 if [ ! -d OpenCorePkg ]; then

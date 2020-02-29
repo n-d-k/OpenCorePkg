@@ -28,15 +28,16 @@ Additional features/changes implemented by this fork
 
           - No verbose apfs.efi driver loading (if using apfs.efi instead of ApfsDriverLoader.efi).
           - ndk-macbuild.tool script are set to compile with latest edk2 (One can easily set to stable edk2 if prefer).
-          - NvmExpressDxe driver build script are also available for system without native nvme support. (Compatible with OC and Clover).
 
 
 
  Usage:
+ 
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
-- To build NvmExpressDxe driver, run "./buildnvme.sh".
 
 
+
+OpenCore bootloader with development SDK.
 
 ## Discussion
 
@@ -46,6 +47,40 @@ Additional features/changes implemented by this fork
 - [MacRumors.com](https://forums.macrumors.com/threads/opencore-on-the-mac-pro.2207814/) in English, legacy Apple hardware
 - [macOS86.it](https://www.macos86.it/showthread.php?4570-OpenCore-aka-OC-Nuovo-BootLoader) in Italian
 - [PCbeta.com](http://bbs.pcbeta.com/viewthread-1815623-1-1.html) in Chinese
+
+## Libraries
+
+This repository also contains additional UEFI support common libraries shared by other projects in [Acidanthera](https://github.com/acidanthera). The primary purpose of the library set is to provide supplemental functionality for Apple-specific UEFI drivers. Key features:
+
+- Apple disk image loading support
+- Apple keyboard input aggregation
+- Apple PE image signature verification
+- Apple UEFI secure boot supplemental code
+- Audio management with screen reading support
+- Basic ACPI and SMBIOS manipulation
+- CPU information gathering with timer support
+- Cryptographic primitives (SHA-256, RSA, etc.)
+- Decompression primitives (zlib, lzss, lzvn, etc.)
+- Helper code for ACPI reads and modifications
+- Higher level abstractions for files, strings, UEFI variables
+- Overflow checking arithmetics
+- PE image loading with no UEFI Secure Boot conflict
+- Plist configuration format parsing
+- PNG image manipulation
+- Text output and graphics output implementations
+- XNU kernel driver injection and patch engine
+
+Early history of the codebase could be found in [AppleSupportPkg](https://github.com/acidanthera/AppleSupportPkg) and PicoLib library set by The HermitCrabs Lab.
+
+#### OcGuardLib
+
+This library implements basic safety features recommended for the use within the project. It implements fast
+safe integral arithmetics mapping on compiler builtins, type alignment checking, and UBSan runtime,
+based on [NetBSD implementation](https://blog.netbsd.org/tnf/entry/introduction_to_µubsan_a_clean).
+
+The use of UBSan runtime requires the use of Clang compiler and `-fsanitize=undefined` argument. Refer to
+[Clang documentation](https://releases.llvm.org/7.0.0/tools/clang/docs/UndefinedBehaviorSanitizer.html) for more
+details.
 
 ## Credits
 
