@@ -34,7 +34,6 @@
 #include <Library/OcStorageLib.h>
 
 #include <OcSimpleBootMenuInternal.h>
-#include <BootManagementInternal.h>
 
 
 STATIC

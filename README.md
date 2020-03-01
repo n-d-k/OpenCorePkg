@@ -1,7 +1,7 @@
 <img src="https://github.com/acidanthera/OpenCorePkg/blob/master/Docs/Logos/OpenCore_with_text_Small.png" width="200" height="48"/>
 
 
-Additional features/changes implemented by this fork
+Additional features/changes implemented by this fork [![Build Status](https://travis-ci.org/n-d-k/OpenCorePkg.svg?branch=master)](https://travis-ci.org/n-d-k/OpenCorePkg)
 ============
 
 [ Multi-Boot ]
