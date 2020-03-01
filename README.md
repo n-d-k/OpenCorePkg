@@ -35,7 +35,9 @@ Additional features/changes implemented by this fork [![Build Status](https://tr
  
 - To build OpenCore, run "./ndk-macbuild.tool" at Terminal (require Xcode and Xcode Command Line Tool installed, and open xcode to accept license agreement before compiling).
 
+#N-D-K fork discussion:
 
+[InsanelyMac.com](https://www.insanelymac.com/forum/topic/341402-customized-opencore-with-additional-features/) in English
 
 OpenCore bootloader with development SDK.
 
