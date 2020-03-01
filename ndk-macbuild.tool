@@ -98,7 +98,6 @@ fi
 if [ "$(nasm -v)" = "" ] || [ "$(nasm -v | grep Apple)" != "" ]; then
   echo "Missing or incompatible nasm!"
   echo "Download the latest nasm from http://www.nasm.us/pub/nasm/releasebuilds/"
-  prompt "Install last tested version automatically?"
   pushd /tmp >/dev/null
   rm -rf nasm-mac64.zip
   curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/nasm-mac64.zip" || exit 1
@@ -116,7 +115,6 @@ fi
 if [ "$(which mtoc.NEW)" == "" ] || [ "$(which mtoc)" == "" ]; then
   echo "Missing mtoc or mtoc.NEW!"
   echo "To build mtoc follow: https://github.com/tianocore/tianocore.github.io/wiki/Xcode#mac-os-x-xcode"
-  prompt "Install prebuilt mtoc and mtoc.NEW automatically?"
   pushd /tmp >/dev/null
   rm -f mtoc mtoc-mac64.zip
   curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/mtoc-mac64.zip" || exit 1
