@@ -38,6 +38,7 @@
 #include <Library/OcStorageLib.h>
 #include <Library/OcTimerLib.h>
 
+#include <BootManagementInternal.h>
 #include <OcSimpleBootMenuInternal.h>
 
 
