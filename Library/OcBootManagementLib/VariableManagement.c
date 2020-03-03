@@ -112,7 +112,12 @@ IsDeletableVariable (
   // Microsoft certificates if present
   //
   } else if (CompareGuid (Guid, &gMicrosoftVariableGuid)) {
-    return TRUE;
+    //
+    // Do not remove current OEM policy.
+    //
+    if (StrCmp (Name, L"CurrentPolicy") != 0) {
+      return TRUE;
+    }
   }
 
   return FALSE;
@@ -203,7 +208,7 @@ DeleteVariables (
           // may produce unpredictable results, so we restart.
           //
           Restart = TRUE;
-        } else if (Status == EFI_NOT_FOUND) {
+        } else if (Status == EFI_NOT_FOUND || Status == EFI_SECURITY_VIOLATION) {
           DEBUG ((
             DEBUG_INFO,
             "Deleting %g:%s... SKIP - %r\n",
