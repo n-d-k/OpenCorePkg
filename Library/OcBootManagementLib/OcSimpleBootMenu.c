@@ -1099,10 +1099,14 @@ CreateIcon (
       }
       break;
     case OcBootApple:
-      if (StrStr (Name, L"Cata") != NULL) {
+      if (StrStr (Name, L"Install") != NULL) {
+        FilePath = L"EFI\\OC\\Icons\\os_Install.icns";
+      } else if (StrStr (Name, L"Cata") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_cata.icns";
       } else if (StrStr (Name, L"Moja") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_moja.icns";
+      } else if (StrStr (Name, L"Clone") != NULL) {
+        FilePath = L"EFI\\OC\\Icons\\os_clone.icns";
       } else {
         FilePath = L"EFI\\OC\\Icons\\os_mac.icns";
       }
@@ -2031,7 +2035,7 @@ InitMouse (
   if (FileExist (FilePath)) {
     mPointer.Pointer = DecodePNGFile (FilePath);
   } else {
-    mPointer.Pointer = CreateFilledImage (32, 32, TRUE, &mBluePixel);
+    mPointer.Pointer = CreateFilledImage (POINTER_WIDTH, POINTER_HEIGHT, TRUE, &mBluePixel);
   }
   
   if(mPointer.Pointer == NULL) {
@@ -2101,7 +2105,7 @@ PointerUpdate (
       mPointer.MouseEvent = NoEvents;
     }
     
-    CopyMem (&mPointer.State, &tmpState, sizeof(EFI_SIMPLE_POINTER_STATE));
+    CopyMem (&mPointer.State, &tmpState, sizeof (EFI_SIMPLE_POINTER_STATE));
     CurrentMode = mPointer.SimplePointerProtocol->Mode;
   
     ScreenRelX = ((mScreenWidth * mPointer.State.RelativeMovementX / (INTN) CurrentMode->ResolutionX) * mPointerSpeed) >> 10;
