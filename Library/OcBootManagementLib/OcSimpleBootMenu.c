@@ -17,6 +17,10 @@
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/SimpleTextOut.h>
 #include <Protocol/UgaDraw.h>
+#include <Protocol/AppleKeyMapAggregator.h>
+#include <Protocol/SimplePointer.h>
+
+#include <IndustryStandard/AppleCsrConfig.h>
 
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -32,6 +36,7 @@
 #include <Library/OcPngLib.h>
 #include <Library/OcFileLib.h>
 #include <Library/OcStorageLib.h>
+#include <Library/OcTimerLib.h>
 
 #include <OcSimpleBootMenuInternal.h>
 
@@ -1916,6 +1921,544 @@ PrintTextDescription (
                  );
 }
 
+/* Mouse Functions Begin */
+
+STATIC
+VOID
+HidePointer (
+  VOID
+  )
+{
+  if (mPointer.SimplePointerProtocol != NULL) {
+    DrawImageArea (mPointer.OldImage, 0, 0, 0, 0, mPointer.OldPlace.Xpos, mPointer.OldPlace.Ypos);
+  }
+}
+
+STATIC
+VOID
+DrawPointer (
+  VOID
+  )
+{
+  if (mPointer.SimplePointerProtocol == NULL) {
+    return;
+  }
+  TakeImage (mPointer.OldImage,
+             mPointer.NewPlace.Xpos,
+             mPointer.NewPlace.Ypos,
+             POINTER_WIDTH,
+             POINTER_HEIGHT
+             );
+  
+  CopyMem (&mPointer.OldPlace, &mPointer.NewPlace, sizeof(AREA_RECT));
+  
+  CopyMem (mPointer.NewImage->Bitmap,
+           mPointer.OldImage->Bitmap,
+           (UINTN) (POINTER_WIDTH * POINTER_HEIGHT * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL))
+           );
+
+  RawCopyAlpha (mPointer.NewImage->Bitmap,
+                mPointer.Pointer->Bitmap,
+                mPointer.NewImage->Width,
+                mPointer.NewImage->Height,
+                mPointer.NewImage->Width,
+                mPointer.Pointer->Width,
+                FALSE
+                );
+  
+  DrawImageArea (mPointer.NewImage,
+                 0,
+                 0,
+                 POINTER_WIDTH,
+                 POINTER_HEIGHT,
+                 mPointer.OldPlace.Xpos,
+                 mPointer.OldPlace.Ypos
+                 );
+}
+
+STATIC
+VOID
+RedrawPointer (
+  VOID
+  )
+{
+  if (mPointer.SimplePointerProtocol == NULL) {
+   return;
+  }
+  
+  HidePointer ();
+  DrawPointer ();
+}
+
+EFI_STATUS
+InitMouse (
+  VOID
+  )
+{
+  EFI_STATUS          Status;
+  NDK_UI_IMAGE        *TmpImage;
+  BOOLEAN             IsAlpha;
+  CHAR16              *FilePath;
+  
+  Status = EFI_UNSUPPORTED;
+  
+  if (mPointer.SimplePointerProtocol != NULL) {
+    DrawPointer ();
+    return EFI_SUCCESS;
+  }
+  
+  Status = gBS->HandleProtocol (gST->ConsoleInHandle, &gEfiSimplePointerProtocolGuid, (VOID**) &mPointer.SimplePointerProtocol);
+  if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "OCMouse: No SimplePointerProtocol found!\n"));
+      Status = gBS->LocateProtocol (&gEfiSimplePointerProtocolGuid, NULL, (VOID**) &mPointer.SimplePointerProtocol);
+  }
+
+  if (EFI_ERROR (Status)) {
+    mPointer.Pointer = NULL;
+    mPointer.MouseEvent = NoEvents;
+    mPointer.SimplePointerProtocol = NULL;
+    DEBUG ((DEBUG_INFO, "OCMouse: No Mouse found!\n"));
+    return Status;
+  }
+  
+  if (mUiScale == 28 || mScreenHeight >= 2160) {
+    FilePath = L"EFI\\OC\\Icons\\pointer4k.png";
+  } else {
+    FilePath = L"EFI\\OC\\Icons\\pointer.png";
+  }
+  
+  if (FileExist (FilePath)) {
+    mPointer.Pointer = DecodePNGFile (FilePath);
+  } else {
+    mPointer.Pointer = CreateFilledImage (32, 32, TRUE, &mBluePixel);
+  }
+  
+  if(mPointer.Pointer == NULL) {
+    DEBUG ((DEBUG_INFO, "OCMouse: No Mouse Icon found!\n"));
+    mPointer.SimplePointerProtocol = NULL;
+    return EFI_NOT_FOUND;
+  }
+  
+  TmpImage = CreateFilledImage (mPointer.Pointer->Width, mPointer.Pointer->Height, TRUE, &mTransparentPixel);
+  IsAlpha = mPointer.Pointer->IsAlpha;
+  mPointer.Pointer->IsAlpha = FALSE;
+  ComposeImage (mPointer.Pointer, TmpImage, 0, 0);
+  mPointer.Pointer->IsAlpha = IsAlpha;
+  FreeImage (TmpImage);
+  
+  mPointer.LastClickTime = 0;
+  mPointer.OldPlace.Xpos = (INTN) (mScreenWidth >> 2);
+  mPointer.OldPlace.Ypos = (INTN) (mScreenHeight >> 2);
+  mPointer.OldPlace.Width = POINTER_WIDTH;
+  mPointer.OldPlace.Height = POINTER_HEIGHT;
+  
+  CopyMem (&mPointer.NewPlace, &mPointer.OldPlace, sizeof (AREA_RECT));
+  
+  mPointer.OldImage = CreateImage(POINTER_WIDTH, POINTER_HEIGHT, FALSE);
+  mPointer.NewImage = CreateFilledImage(POINTER_WIDTH, POINTER_HEIGHT, TRUE, &mTransparentPixel);
+  DrawPointer ();
+  mPointer.MouseEvent = NoEvents;
+  return Status;
+}
+
+STATIC
+VOID
+PointerUpdate (
+  VOID
+  )
+{
+  UINT64                    Now;
+  EFI_STATUS                Status;
+  EFI_SIMPLE_POINTER_STATE  tmpState;
+  EFI_SIMPLE_POINTER_MODE   *CurrentMode;
+  INTN                      ScreenRelX;
+  INTN                      ScreenRelY;
+  
+  Now = GetTimeInNanoSecond (GetPerformanceCounter ());
+  Status = mPointer.SimplePointerProtocol->GetState (mPointer.SimplePointerProtocol, &tmpState);
+  if (!EFI_ERROR (Status)) {
+    if (!mPointer.State.LeftButton && tmpState.LeftButton) {
+      mPointer.MouseEvent = LeftMouseDown;
+    } else if (!mPointer.State.RightButton && tmpState.RightButton) {
+      mPointer.MouseEvent = RightMouseDown;
+    } else if (mPointer.State.LeftButton && !tmpState.LeftButton) {
+      if (Now < (mPointer.LastClickTime + mDoubleClickTime * 1000000ULL)) {
+        mPointer.MouseEvent = DoubleClick;
+      } else {
+        mPointer.MouseEvent = LeftClick;
+      }
+      mPointer.LastClickTime = Now;
+    } else if (mPointer.State.RightButton && !tmpState.RightButton) {
+      mPointer.MouseEvent = RightClick;
+    } else if (mPointer.State.RelativeMovementZ > 0) {
+      mPointer.MouseEvent = ScrollDown;
+    } else if (mPointer.State.RelativeMovementZ < 0) {
+      mPointer.MouseEvent = ScrollUp;
+    } else if (mPointer.State.RelativeMovementX || mPointer.State.RelativeMovementY) {
+      mPointer.MouseEvent = MouseMove;
+    } else {
+      mPointer.MouseEvent = NoEvents;
+    }
+    
+    CopyMem (&mPointer.State, &tmpState, sizeof(EFI_SIMPLE_POINTER_STATE));
+    CurrentMode = mPointer.SimplePointerProtocol->Mode;
+  
+    ScreenRelX = ((mScreenWidth * mPointer.State.RelativeMovementX / (INTN) CurrentMode->ResolutionX) * mPointerSpeed) >> 10;
+    
+    mPointer.NewPlace.Xpos += ScreenRelX;
+    
+    if (mPointer.NewPlace.Xpos < 0) {
+      mPointer.NewPlace.Xpos = 0;
+    }
+    if (mPointer.NewPlace.Xpos > mScreenWidth - 1) {
+      mPointer.NewPlace.Xpos = mScreenWidth - 1;
+    }
+    
+    ScreenRelY = ((mScreenHeight * mPointer.State.RelativeMovementY / (INTN) CurrentMode->ResolutionY) * mPointerSpeed) >> 10;
+    mPointer.NewPlace.Ypos += ScreenRelY;
+    
+    if (mPointer.NewPlace.Ypos < 0) {
+      mPointer.NewPlace.Ypos = 0;
+    }
+    
+    if (mPointer.NewPlace.Ypos > mScreenHeight - 1) {
+      mPointer.NewPlace.Ypos = mScreenHeight - 1;
+    }
+    
+    RedrawPointer();
+  }
+}
+
+STATIC
+BOOLEAN
+MouseInRect (
+  IN AREA_RECT     *Place
+  )
+{
+  return  ((mPointer.NewPlace.Xpos >= Place->Xpos)
+           && (mPointer.NewPlace.Xpos < (Place->Xpos + (INTN) Place->Width))
+           && (mPointer.NewPlace.Ypos >= Place->Ypos)
+           && (mPointer.NewPlace.Ypos < (Place->Ypos + (INTN) Place->Height))
+           );
+}
+
+STATIC
+INTN
+CheckIconClick (
+  VOID
+  )
+{
+  INTN       TotalIcons;
+  INTN       IconsPerRow;
+  INTN       Rows;
+  INTN       Xpos;
+  INTN       Ypos;
+  INTN       NewXpos;
+  INTN       NewYpos;
+  INTN       Result;
+  UINTN      Index;
+  AREA_RECT  Place;
+  
+  Result = -1;
+  
+  if (mMenuImage == NULL) {
+    return Result;
+  }
+  
+  Place.Width = mIconSpaceSize;
+  Place.Height = mIconSpaceSize;
+  
+  Rows = mMenuImage->Height / mIconSpaceSize;
+  IconsPerRow = mMenuImage->Width / mIconSpaceSize;
+  TotalIcons = (mMenuImage->Width / mIconSpaceSize) * Rows;
+  Xpos = (mScreenWidth - mMenuImage->Width) / 2;
+  Ypos = (mScreenHeight / 2) - mIconSpaceSize;
+  NewXpos = Xpos;
+  NewYpos = Ypos;
+  
+  for (Index = 0; Index < TotalIcons; ++Index) {
+    Place.Xpos = NewXpos;
+    Place.Ypos = NewYpos;
+    if (MouseInRect (&Place)) {
+      Result = (INTN) Index;
+      break;
+    }
+    NewXpos = NewXpos + mIconSpaceSize;
+    if (Index == (IconsPerRow - 1)) {
+      NewXpos = Xpos;
+      NewYpos = Ypos + mIconSpaceSize;
+    }
+  }
+  return Result;
+}
+
+STATIC
+VOID
+KillMouse (
+  VOID
+  )
+{
+  if (mPointer.SimplePointerProtocol == NULL) {
+    return;
+  }
+  
+  FreeImage (mPointer.NewImage);
+  mPointer.NewImage = NULL;
+  FreeImage (mPointer.OldImage);
+  mPointer.OldImage = NULL;
+
+  if (mPointer.Pointer != NULL) {
+    FreeImage (mPointer.Pointer);
+  }
+
+  mPointer.Pointer = NULL;
+  mPointer.MouseEvent = NoEvents;
+  mPointer.SimplePointerProtocol = NULL;
+}
+
+/* Mouse Functions End*/
+
+STATIC
+INTN
+OcWaitForKeyIndex (
+  IN OUT OC_PICKER_CONTEXT                  *Context,
+  IN     APPLE_KEY_MAP_AGGREGATOR_PROTOCOL  *KeyMap,
+  IN     UINTN                              Timeout,
+  IN     BOOLEAN                            PollHotkeys,
+     OUT BOOLEAN                            *SetDefault  OPTIONAL
+  )
+{
+  EFI_STATUS                         Status;
+  APPLE_KEY_CODE                     KeyCode;
+
+  UINTN                              NumKeys;
+  APPLE_MODIFIER_MAP                 Modifiers;
+  APPLE_KEY_CODE                     Keys[OC_KEY_MAP_DEFAULT_SIZE];
+
+  BOOLEAN                            HasCommand;
+  BOOLEAN                            HasShift;
+  BOOLEAN                            HasKeyC;
+  BOOLEAN                            HasKeyK;
+  BOOLEAN                            HasKeyS;
+  BOOLEAN                            HasKeyV;
+  BOOLEAN                            HasKeyMinus;
+  BOOLEAN                            WantsZeroSlide;
+  BOOLEAN                            WantsDefault;
+  UINT32                             CsrActiveConfig;
+  UINT64                             CurrTime;
+  UINT64                             EndTime;
+  UINTN                              CsrActiveConfigSize;
+  INTN                               KeyClick;
+  
+  CurrTime  = GetTimeInNanoSecond (GetPerformanceCounter ());
+  EndTime   = CurrTime + Timeout * 1000000ULL;
+  if (SetDefault != NULL) {
+    *SetDefault = FALSE;
+  }
+  
+  while (Timeout == 0 || CurrTime == 0 || CurrTime < EndTime) {
+    if (mPointer.SimplePointerProtocol != NULL) {
+      PointerUpdate();
+      switch (mPointer.MouseEvent) {
+        case LeftClick:
+          mPointer.MouseEvent = NoEvents;
+          KeyClick = CheckIconClick ();
+          if (KeyClick >= 0 && KeyClick != mCurrentSelection) {
+            mCurrentSelection = KeyClick;
+            return OC_INPUT_POINTER;
+          }
+          break;
+        case RightClick:
+          mPointer.MouseEvent = NoEvents;
+          return OC_INPUT_SPACEBAR;
+        case DoubleClick:
+          mPointer.MouseEvent = NoEvents;
+          KeyClick = CheckIconClick ();
+          if (KeyClick >= 0) {
+            return KeyClick;
+          }
+          break;
+        default:
+          break;
+      }
+      mPointer.MouseEvent = NoEvents;
+    }
+    NumKeys = ARRAY_SIZE (Keys);
+    Status = KeyMap->GetKeyStrokes (
+                       KeyMap,
+                       &Modifiers,
+                       &NumKeys,
+                       Keys
+                       );
+
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_ERROR, "OCB: GetKeyStrokes - %r\n", Status));
+      return OC_INPUT_INVALID;
+    }
+
+    CurrTime    = GetTimeInNanoSecond (GetPerformanceCounter ());
+    
+    if (PollHotkeys) {
+      HasCommand = (Modifiers & (APPLE_MODIFIER_LEFT_COMMAND | APPLE_MODIFIER_RIGHT_COMMAND)) != 0;
+      HasShift   = (Modifiers & (APPLE_MODIFIER_LEFT_SHIFT | APPLE_MODIFIER_RIGHT_SHIFT)) != 0;
+      HasKeyC    = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyC);
+      HasKeyK    = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyK);
+      HasKeyS    = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyS);
+      HasKeyV    = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyV);
+
+      HasKeyMinus = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyMinus)
+        || OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyPadMinus);
+
+      if (HasShift) {
+        if (OcGetArgumentFromCmd (Context->AppleBootArgs, "-x", L_STR_LEN ("-x")) == NULL) {
+          DEBUG ((DEBUG_INFO, "OCB: Shift means -x\n"));
+          OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-x", L_STR_LEN ("-x"));
+        }
+        continue;
+      }
+
+      //
+      // CMD+V is always valid and enables Verbose Mode.
+      //
+      if (HasCommand && HasKeyV) {
+        if (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL) {
+          DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
+          OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
+        }
+        continue;
+      }
+
+      if (HasCommand && HasKeyC && HasKeyMinus) {
+        if (OcGetArgumentFromCmd (Context->AppleBootArgs, "-no_compat_check", L_STR_LEN ("-no_compat_check")) == NULL) {
+          DEBUG ((DEBUG_INFO, "OCB: CMD+C+MINUS means -no_compat_check\n"));
+          OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-no_compat_check", L_STR_LEN ("-no_compat_check"));
+        }
+        continue;
+      }
+
+      if (HasCommand && HasKeyK) {
+        if (AsciiStrStr (Context->AppleBootArgs, "kcsuffix=release") == NULL) {
+          DEBUG ((DEBUG_INFO, "OCB: CMD+K means kcsuffix=release\n"));
+          OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "kcsuffix=release", L_STR_LEN ("kcsuffix=release"));
+        }
+        continue;
+      }
+
+      if (HasCommand && HasKeyS) {
+        WantsZeroSlide = HasKeyMinus;
+
+        if (WantsZeroSlide) {
+          CsrActiveConfig     = 0;
+          CsrActiveConfigSize = sizeof (CsrActiveConfig);
+          Status = gRT->GetVariable (
+            L"csr-active-config",
+            &gAppleBootVariableGuid,
+            NULL,
+            &CsrActiveConfigSize,
+            &CsrActiveConfig
+            );
+          
+          WantsZeroSlide = !EFI_ERROR (Status) && (CsrActiveConfig & CSR_ALLOW_UNRESTRICTED_NVRAM) != 0;
+        }
+
+        if (WantsZeroSlide) {
+          if (AsciiStrStr (Context->AppleBootArgs, "slide=0") == NULL) {
+            DEBUG ((DEBUG_INFO, "OCB: CMD+S+MINUS means slide=0\n"));
+            OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "slide=0", L_STR_LEN ("slide=0"));
+          }
+        } else if (OcGetArgumentFromCmd (Context->AppleBootArgs, "-s", L_STR_LEN ("-s")) == NULL) {
+          DEBUG ((DEBUG_INFO, "OCB: CMD+S means -s\n"));
+          OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-s", L_STR_LEN ("-s"));
+        }
+        continue;
+      }
+    }
+
+    if ((Modifiers & (APPLE_MODIFIER_LEFT_COMMAND | APPLE_MODIFIER_RIGHT_COMMAND)) != 0
+      && OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyF5)) {
+      OcKeyMapFlush (KeyMap, 0, TRUE);
+      return OC_INPUT_VOICE_OVER;
+    }
+    
+    if (OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyEscape)
+     || OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyZero)) {
+      OcKeyMapFlush (KeyMap, 0, TRUE);
+      return OC_INPUT_ABORTED;
+    }
+    
+    WantsDefault = Modifiers != 0 && (Modifiers & ~(APPLE_MODIFIER_LEFT_CONTROL | APPLE_MODIFIER_RIGHT_CONTROL)) == 0;
+
+    if ((Modifiers == 0 || WantsDefault) && NumKeys == 1) {
+      if (Keys[0] == AppleHidUsbKbUsageKeySpaceBar) {
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        return OC_INPUT_SPACEBAR;
+      }
+      
+      if (Keys[0] == AppleHidUsbKbUsageKeyEnter
+        || Keys[0] == AppleHidUsbKbUsageKeyReturn
+        || Keys[0] == AppleHidUsbKbUsageKeyPadEnter) {
+        if (WantsDefault && SetDefault != NULL) {
+          *SetDefault = TRUE;
+        }
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        return OC_INPUT_RETURN;
+      }
+      
+      if (Keys[0] == AppleHidUsbKbUsageKeyUpArrow || Keys[0] == AppleHidUsbKbUsageKeyLeftArrow) {
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        return OC_INPUT_UP;
+      }
+      
+      if (Keys[0] == AppleHidUsbKbUsageKeyDownArrow || Keys[0] == AppleHidUsbKbUsageKeyRightArrow) {
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        return OC_INPUT_DOWN;
+      }
+
+      STATIC_ASSERT (AppleHidUsbKbUsageKeyF1 + 11 == AppleHidUsbKbUsageKeyF12, "Unexpected encoding");
+      if (Keys[0] >= AppleHidUsbKbUsageKeyF1 && Keys[0] <= AppleHidUsbKbUsageKeyF12) {
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        return OC_INPUT_FUNCTIONAL (Keys[0] - AppleHidUsbKbUsageKeyF1 + 1);
+      }
+
+      STATIC_ASSERT (AppleHidUsbKbUsageKeyF13 + 11 == AppleHidUsbKbUsageKeyF24, "Unexpected encoding");
+      if (Keys[0] >= AppleHidUsbKbUsageKeyF13 && Keys[0] <= AppleHidUsbKbUsageKeyF24) {
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        return OC_INPUT_FUNCTIONAL (Keys[0] - AppleHidUsbKbUsageKeyF13 + 13);
+      }
+      
+      STATIC_ASSERT (AppleHidUsbKbUsageKeyOne + 8 == AppleHidUsbKbUsageKeyNine, "Unexpected encoding");
+      for (KeyCode = AppleHidUsbKbUsageKeyOne; KeyCode <= AppleHidUsbKbUsageKeyNine; ++KeyCode) {
+        if (OcKeyMapHasKey (Keys, NumKeys, KeyCode)) {
+          if (WantsDefault && SetDefault != NULL) {
+            *SetDefault = TRUE;
+          }
+          OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+          return (INTN) (KeyCode - AppleHidUsbKbUsageKeyOne);
+        }
+      }
+
+      STATIC_ASSERT (AppleHidUsbKbUsageKeyA + 25 == AppleHidUsbKbUsageKeyZ, "Unexpected encoding");
+      for (KeyCode = AppleHidUsbKbUsageKeyA; KeyCode <= AppleHidUsbKbUsageKeyZ; ++KeyCode) {
+        if (OcKeyMapHasKey (Keys, NumKeys, KeyCode)) {
+          if (WantsDefault && SetDefault != NULL) {
+            *SetDefault = TRUE;
+          }
+          OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+          return (INTN) (KeyCode - AppleHidUsbKbUsageKeyA + 9);
+        }
+      }
+    }
+
+    if (Timeout != 0 && NumKeys != 0) {
+      return OC_INPUT_INVALID;
+    }
+
+    MicroSecondDelay (10);
+  }
+
+  return OC_INPUT_TIMEOUT;
+}
+
 STATIC
 VOID
 RestoreConsoleMode (
@@ -1934,6 +2477,7 @@ RestoreConsoleMode (
     gST->ConOut->SetAttribute (gST->ConOut, Context->ConsoleAttributes & 0x7FU);
   }
   gST->ConOut->SetCursorPosition (gST->ConOut, 0, 0);
+  KillMouse ();
 }
 
 EFI_STATUS
@@ -2030,6 +2574,7 @@ OcShowSimpleBootMenu (
     ClearScreenArea (&mTransparentPixel, 0, (mScreenHeight / 2) - mIconSpaceSize, mScreenWidth, mIconSpaceSize * 2);
     BltMenuImage (mMenuImage, (mScreenWidth - mMenuImage->Width) / 2, (mScreenHeight / 2) - mIconSpaceSize);
     SwitchIconSelection (VisibleIndex, Selected, TRUE);
+    mCurrentSelection = Selected;
     PrintTextDescription (MaxStrWidth,
                           Selected,
                           BootEntries[DefaultEntry].Name,
@@ -2057,9 +2602,15 @@ OcShowSimpleBootMenu (
         );
       PlayedOnce = TRUE;
     }
+    
+    if (mPointer.SimplePointerProtocol == NULL) {
+      InitMouse ();
+    } else {
+      DrawPointer ();
+    }
 
     while (TRUE) {
-      KeyIndex = OcWaitForAppleKeyIndex (Context, KeyMap, 1000, Context->PollAppleHotKeys, &SetDefault);
+      KeyIndex = OcWaitForKeyIndex (Context, KeyMap, 1000, Context->PollAppleHotKeys, &SetDefault);
       if (PlayChosen && KeyIndex == OC_INPUT_TIMEOUT) {
         OcPlayAudioFile (Context, OcVoiceOverAudioFileSelected, FALSE);
         OcPlayAudioEntry (Context, &BootEntries[DefaultEntry], 1 + (UINT32) Selected);
@@ -2096,6 +2647,7 @@ OcShowSimpleBootMenu (
         TimeOutSeconds = 0;
         TakeScreenShot (L"ScreenShot");
       } else if (KeyIndex == OC_INPUT_SPACEBAR) {
+        HidePointer ();
         ShowAll = !ShowAll;
         while ((BootEntries[DefaultEntry].IsAuxiliary && !ShowAll && DefaultEntry > 0)
                || (BootEntries[DefaultEntry].Type == OcBootSystem && !ShowAll && DefaultEntry > 0)) {
@@ -2104,9 +2656,11 @@ OcShowSimpleBootMenu (
         TimeOutSeconds = 0;
         break;
       } else if (KeyIndex == OC_INPUT_UP) {
+        HidePointer ();
         SwitchIconSelection (VisibleIndex, Selected, FALSE);
         DefaultEntry = Selected > 0 ? VisibleList[Selected - 1] : VisibleList[VisibleIndex - 1];
         Selected = Selected > 0 ? --Selected : VisibleIndex - 1;
+        mCurrentSelection = Selected;
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
         PrintTextDescription (MaxStrWidth,
                               Selected,
@@ -2116,10 +2670,13 @@ OcShowSimpleBootMenu (
                               );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
+        DrawPointer ();
       } else if (KeyIndex == OC_INPUT_DOWN) {
+        HidePointer ();
         SwitchIconSelection (VisibleIndex, Selected, FALSE);
         DefaultEntry = Selected < (VisibleIndex - 1) ? VisibleList[Selected + 1] : VisibleList[0];
         Selected = Selected < (VisibleIndex - 1) ? ++Selected : 0;
+        mCurrentSelection = Selected;
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
         PrintTextDescription (MaxStrWidth,
                               Selected,
@@ -2129,6 +2686,22 @@ OcShowSimpleBootMenu (
                               );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
+        DrawPointer ();
+      } else if (KeyIndex == OC_INPUT_POINTER) {
+        HidePointer ();
+        SwitchIconSelection (VisibleIndex, Selected, FALSE);
+        Selected = mCurrentSelection;
+        DefaultEntry = VisibleList[Selected];
+        SwitchIconSelection (VisibleIndex, Selected, TRUE);
+        PrintTextDescription (MaxStrWidth,
+                              Selected,
+                              BootEntries[DefaultEntry].Name,
+                              BootEntries[DefaultEntry].IsExternal,
+                              BootEntries[DefaultEntry].IsFolder
+                              );
+        TimeOutSeconds = 0;
+        PlayChosen = Context->PickerAudioAssist;
+        DrawPointer ();
       } else if (KeyIndex != OC_INPUT_INVALID && (UINTN)KeyIndex < VisibleIndex) {
         ASSERT (KeyIndex >= 0);
         *ChosenBootEntry = &BootEntries[VisibleList[KeyIndex]];

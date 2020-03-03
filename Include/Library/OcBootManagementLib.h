@@ -728,6 +728,7 @@ OcLoadPickerHotKeys (
 #define OC_INPUT_RETURN   -6 ///< Enter/Return key
 #define OC_INPUT_SPACEBAR -7 ///< SpaceBar
 #define OC_INPUT_VOICE_OVER     -8          ///< Toggle VoiceOver (press CMD+F5)
+#define OC_INPUT_POINTER  -9 ///<Mouse LeftClick
 #define OC_INPUT_FUNCTIONAL(x) (-20 - (x))  ///< Functional hotkeys
 
 /**

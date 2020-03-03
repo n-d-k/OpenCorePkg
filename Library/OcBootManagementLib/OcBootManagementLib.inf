@@ -89,6 +89,7 @@
   gOcFirmwareRuntimeProtocolGuid     ## SOMETIMES_CONSUMES
   gOcAudioProtocolGuid               ## SOMETIMES_CONSUMES
   gAppleBeepGenProtocolGuid          ## SOMETIMES_CONSUMES
+  gEfiSimplePointerProtocolGuid      ## BY_START
 
 [LibraryClasses]
   BaseLib

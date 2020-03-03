@@ -16,7 +16,9 @@ STATIC
 UINTN
 mDefaultEntry;
 
-/*========== Graphic UI Begin ==========*/
+STATIC
+INTN
+mCurrentSelection;
 
 typedef struct _NDK_UI_IMAGE {
   UINT16                          Width;
@@ -24,6 +26,61 @@ typedef struct _NDK_UI_IMAGE {
   BOOLEAN                         IsAlpha;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL   *Bitmap;
 } NDK_UI_IMAGE;
+
+/*========== Pointer Begin ==========*/
+
+#define POINTER_WIDTH  32
+#define POINTER_HEIGHT 32
+
+typedef enum {
+  NoEvents,
+  Move,
+  LeftClick,
+  RightClick,
+  DoubleClick,
+  ScrollClick,
+  ScrollDown,
+  ScrollUp,
+  LeftMouseDown,
+  RightMouseDown,
+  MouseMove
+} MOUSE_EVENT;
+
+typedef struct {
+  INTN     Xpos;
+  INTN     Ypos;
+  INTN     Width;
+  INTN     Height;
+} AREA_RECT;
+
+typedef struct _pointers {
+  EFI_SIMPLE_POINTER_PROTOCOL *SimplePointerProtocol;
+  NDK_UI_IMAGE *Pointer;
+  NDK_UI_IMAGE *NewImage;
+  NDK_UI_IMAGE *OldImage;
+  
+  AREA_RECT  NewPlace;
+  AREA_RECT  OldPlace;
+  
+  UINT64  LastClickTime;
+  EFI_SIMPLE_POINTER_STATE State;
+  MOUSE_EVENT MouseEvent;
+} POINTERS;
+
+POINTERS mPointer = {NULL, NULL, NULL, NULL,
+{0, 0, POINTER_WIDTH, POINTER_HEIGHT},
+{0, 0, POINTER_WIDTH, POINTER_HEIGHT}, 0,
+{0, 0, 0, FALSE, FALSE}, NoEvents};
+
+STATIC
+INTN
+mPointerSpeed = 6;
+
+STATIC
+UINT64
+mDoubleClickTime = 500;
+
+/*========== Graphic UI Begin ==========*/
 
 STATIC
 EFI_GRAPHICS_OUTPUT_PROTOCOL *
@@ -102,7 +159,6 @@ mMenuFadeIntensity = 150;     // ranging from 0 to 255 0 = completely disappear,
 
 /* Colors are now customized by the optional small 16x16 pixels png color example files in icons folder (Can be anysize only 1st pixels will be used for color setting).
    font_color.png (Entry discription color and selection color)
-   font_color_alt.png (All other text on screen)
    background_color.png (Background color)
    Background.png (Wallpaper bacground instead, preferly matching with screen resolution setting.)
  
