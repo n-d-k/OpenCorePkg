@@ -370,8 +370,8 @@ RawCopyAlpha (
           && TopPtr->Blue > 0
           && TopPtr->Green > 0)
           ) {
-        Alpha =  Faded ? mMenuFadeIntensity + 1 : TopPtr->Reserved + 1;
-        InvAlpha = Faded ? 256 - mMenuFadeIntensity : 256 - TopPtr->Reserved;
+        Alpha =  Faded ? (mMenuFadeIntensity * TopPtr->Reserved) / 255 : TopPtr->Reserved + 1;
+        InvAlpha = Faded ? 256 - ((mMenuFadeIntensity * TopPtr->Reserved) / 255) : 256 - TopPtr->Reserved;
         CompPtr->Blue = (UINT8) ((TopPtr->Blue * Alpha + CompPtr->Blue * InvAlpha) >> 8);
         CompPtr->Green = (UINT8) ((TopPtr->Green * Alpha + CompPtr->Green * InvAlpha) >> 8);
         CompPtr->Red = (UINT8) ((TopPtr->Red * Alpha + CompPtr->Red * InvAlpha) >> 8);
@@ -2745,11 +2745,15 @@ OcShowSimpleBootMenu (
       }
 
       if (!TimeoutExpired) {
+        HidePointer ();
         PrintDateTime (ShowAll);
         TimeoutExpired = PrintTimeOutMessage (TimeOutSeconds);
         TimeOutSeconds = TimeoutExpired ? 10000 : TimeOutSeconds;
+        DrawPointer ();
       } else {
+        HidePointer ();
         PrintDateTime (ShowAll);
+        DrawPointer ();
       }
     }
   }
