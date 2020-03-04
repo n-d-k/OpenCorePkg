@@ -79,7 +79,7 @@ package() {
   cp -r "${selfdir}/Utilities/CreateVault" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/Utilities/LogoutHook" tmp/Utilities/ || exit 1
   pushd tmp || exit 1
-  zip -qry -FS ../"OpenCore-${ver}-${2}.zip" * || exit 1
+  zip -qry -FS ../"NDK-OpenCore-${ver}-${2}.zip" * || exit 1
   popd || exit 1
   rm -rf tmp || exit 1
   popd || exit 1

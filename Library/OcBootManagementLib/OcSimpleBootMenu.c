@@ -698,6 +698,7 @@ CreateMenuImage (
   UINTN                  IconsPerRow;
   INTN                   Xpos;
   INTN                   Ypos;
+  INTN                   Offset;
   
   NewImage = NULL;
   Xpos = 0;
@@ -738,7 +739,9 @@ CreateMenuImage (
     }
   }
   
-  ComposeImage (NewImage, Icon, Xpos + mIconPaddingSize, Ypos + mIconPaddingSize);
+  Offset = (mIconSpaceSize - (Icon->Width + (mIconPaddingSize * 2))) > 0 ? (mIconSpaceSize - (Icon->Width + (mIconPaddingSize * 2))) / 2 : 0;
+  
+  ComposeImage (NewImage, Icon, Xpos + mIconPaddingSize + Offset, Ypos + mIconPaddingSize + Offset);
   if (Icon != NULL) {
     FreeImage (Icon);
   }
@@ -1153,6 +1156,11 @@ CreateIcon (
     Icon = CreateFilledImage (128, 128, TRUE, &mBluePixel);
   }
   
+  if (Icon->Width > 128 && mMenuImage == NULL) {
+    mIconSpaceSize = Icon->Width + (mIconPaddingSize * 2);
+    mUiScale = 16;
+  }
+  
   if (Icon != NULL) {
     TmpImage = CreateFilledImage (Icon->Width, Icon->Height, TRUE, &mTransparentPixel);
     IsAlpha = Icon->IsAlpha;
@@ -1417,7 +1425,6 @@ InitScreen (
     mIconSpaceSize = 136;
   }
 }
-
 //
 // Text rendering
 //
