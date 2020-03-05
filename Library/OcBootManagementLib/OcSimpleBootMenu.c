@@ -1184,10 +1184,12 @@ SwitchIconSelection (
   )
 {
   NDK_UI_IMAGE           *NewImage;
+  NDK_UI_IMAGE           *SelectorImage;
   NDK_UI_IMAGE           *Icon;
   BOOLEAN                IsTwoRow;
   INTN                   Xpos;
   INTN                   Ypos;
+  INTN                   Offset;
   UINT16                 Width;
   UINT16                 Height;
   UINTN                  IconsPerRow;
@@ -1239,14 +1241,41 @@ SwitchIconSelection (
            );
   
   if (Selected && mSelectorUsed) {
-    NewImage = CreateFilledImage (mIconSpaceSize, mIconSpaceSize, FALSE, mFontColorPixel);
-    RawCopy (NewImage->Bitmap + mIconPaddingSize * NewImage->Width + mIconPaddingSize,
-             mBackgroundImage->Bitmap + (Ypos + mIconPaddingSize) * mBackgroundImage->Width + (Xpos + mIconPaddingSize),
-             mIconSpaceSize - (mIconPaddingSize * 2),
-             mIconSpaceSize - (mIconPaddingSize * 2),
-             mIconSpaceSize,
-             mBackgroundImage->Width
-             );
+    if (mSelectionImage != NULL && (mSelectionImage->Width == 144 || mSelectionImage->Width == 288)) {
+      NewImage = CreateImage (mIconSpaceSize, mIconSpaceSize, FALSE);
+      
+      RawCopy (NewImage->Bitmap,
+               mBackgroundImage->Bitmap + Ypos * mBackgroundImage->Width + Xpos,
+               mIconSpaceSize,
+               mIconSpaceSize,
+               mIconSpaceSize,
+               mBackgroundImage->Width
+               );
+      
+      SelectorImage = CopyScaledImage (mSelectionImage, (mSelectionImage->Width == mIconSpaceSize) ? 16 : mUiScale);
+      
+      Offset = (NewImage->Width - SelectorImage->Width) >> 1;
+      
+      RawCopyAlpha (NewImage->Bitmap + Offset * NewImage->Width + Offset,
+                    SelectorImage->Bitmap,
+                    SelectorImage->Width,
+                    SelectorImage->Height,
+                    NewImage->Width,
+                    SelectorImage->Width,
+                    TRUE
+                    );
+      
+      FreeImage (SelectorImage);
+    } else {
+      NewImage = CreateFilledImage (mIconSpaceSize, mIconSpaceSize, FALSE, mFontColorPixel);
+      RawCopy (NewImage->Bitmap + mIconPaddingSize * NewImage->Width + mIconPaddingSize,
+               mBackgroundImage->Bitmap + (Ypos + mIconPaddingSize) * mBackgroundImage->Width + (Xpos + mIconPaddingSize),
+               mIconSpaceSize - (mIconPaddingSize * 2),
+               mIconSpaceSize - (mIconPaddingSize * 2),
+               mIconSpaceSize,
+               mBackgroundImage->Width
+               );
+    }
   } else {
     NewImage = CreateImage (mIconSpaceSize, mIconSpaceSize, FALSE);
     
@@ -1281,7 +1310,9 @@ ClearScreen (
 {
   NDK_UI_IMAGE                  *Image;
   
-  if (FileExist (L"EFI\\OC\\Icons\\Background.png")) {
+  if (FileExist (L"EFI\\OC\\Icons\\Background4k.png") && mScreenHeight >= 2160) {
+    mBackgroundImage = DecodePNGFile (L"EFI\\OC\\Icons\\Background4k.png");
+  } else if (FileExist (L"EFI\\OC\\Icons\\Background4k.png")) {
     mBackgroundImage = DecodePNGFile (L"EFI\\OC\\Icons\\Background.png");
   }
   
@@ -1325,6 +1356,12 @@ ClearScreen (
     mAlphaEffect = FALSE;
   } else if (FileExist (L"EFI\\OC\\Icons\\No_selector.png")) {
     mSelectorUsed = FALSE;
+  }
+  
+  if (mSelectorUsed && FileExist (L"EFI\\OC\\Icons\\Selector4k.png") && mScreenHeight >= 2160) {
+    mSelectionImage = DecodePNGFile (L"EFI\\OC\\Icons\\Selector4k.png");
+  } else if (mSelectorUsed && FileExist (L"EFI\\OC\\Icons\\Selector.png")) {
+    mSelectionImage = DecodePNGFile (L"EFI\\OC\\Icons\\Selector.png");
   }
 }
 
@@ -1412,17 +1449,17 @@ InitScreen (
   
   mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 28 : 16;
   if (mUiScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_icon_scaling.png"))) {
-    mUiScale = 28;
-    mIconPaddingSize = 5;
-    mIconSpaceSize = 234;
+    mUiScale = 32;
+    mIconPaddingSize = 16;
+    mIconSpaceSize = 288;
   } else if (mUiScale == 0 && mScreenHeight <= 800) {
     mUiScale = 8;
     mIconPaddingSize = 3;
     mIconSpaceSize = 70;
   } else {
     mUiScale = 16;
-    mIconPaddingSize = 4;
-    mIconSpaceSize = 136;
+    mIconPaddingSize = 8;
+    mIconSpaceSize = 144;
   }
 }
 //
@@ -2482,6 +2519,8 @@ RestoreConsoleMode (
   mMenuImage = NULL;
   FreeImage (mFontImage);
   mFontImage = NULL;
+  FreeImage (mSelectionImage);
+  mSelectionImage = NULL;
   ClearScreenArea (&mBlackPixel, 0, 0, mScreenWidth, mScreenHeight);
   mUiScale = 0;
   mTextScale = 0;
