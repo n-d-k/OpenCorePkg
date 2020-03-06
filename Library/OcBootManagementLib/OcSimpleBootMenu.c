@@ -25,6 +25,7 @@
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/OcDebugLogLib.h>
+#include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/OcAppleKeyMapLib.h>
 #include <Library/OcBootManagementLib.h>
@@ -1010,6 +1011,9 @@ TakeScreenShot (
   BufferSize = 0;
   
   Status = gRT->GetTime (&Date, NULL);
+  if (EFI_ERROR (Status)) {
+    ZeroMem (&Date, sizeof (Date));
+  }
   
   Size = StrSize (FilePath) + L_STR_SIZE (L"-0000-00-00-000000.png");
   Path = AllocatePool (Size);
@@ -1070,6 +1074,90 @@ TakeScreenShot (
   }
   if (Path != NULL) {
     FreePool (Path);
+  }
+}
+//
+// Saving Entries' devicepath to file (Forked function only)
+//
+VOID
+SaveEntriesDataToFile (
+  IN CHAR16            *FilePath,
+  IN OC_BOOT_ENTRY     *Entries,
+  IN UINTN             Count
+  )
+{
+  EFI_STATUS                           Status;
+  EFI_TIME                             Date;
+  EFI_FILE_PROTOCOL                    *Fs;
+  UINTN                                Index;
+  CHAR8                                AsciiStr[512];
+  CHAR8                                *AsciiBuffer;
+  CHAR16                               *DevicePathText;
+  CHAR16                               *Path;
+  UINTN                                Size;
+  
+  DevicePathText = NULL;
+  AsciiBuffer = AllocateZeroPool (EFI_PAGE_SIZE * Count);
+  
+  if (AsciiBuffer != NULL) {
+    AsciiSPrint (AsciiStr, sizeof (AsciiStr), "====== Boot Entries Summary ======\n\n");
+    AsciiStrCatS (AsciiBuffer, EFI_PAGE_SIZE, AsciiStr);
+    
+    for (Index = 0; Index < Count; ++Index) {
+      if (Entries[Index].Type == OcBootSystem || Entries[Index].DevicePath == NULL) {
+        continue;
+      }
+      
+      AsciiSPrint (AsciiStr, sizeof (AsciiStr), "Entry name: %s\n",
+                   Entries[Index].Name
+                   );
+      
+      AsciiStrCatS (AsciiBuffer, EFI_PAGE_SIZE, AsciiStr);
+      DevicePathText = ConvertDevicePathToText (Entries[Index].DevicePath, FALSE, FALSE);
+      AsciiSPrint (AsciiStr, sizeof (AsciiStr), "DevicePath: %s\n\n", DevicePathText);
+      AsciiStrCatS (AsciiBuffer, EFI_PAGE_SIZE, AsciiStr);
+      FreePool (DevicePathText);
+      DevicePathText = NULL;
+    }
+
+    Status = gRT->GetTime (&Date, NULL);
+    if (EFI_ERROR (Status)) {
+      ZeroMem (&Date, sizeof (Date));
+    }
+    
+    AsciiSPrint (AsciiStr, sizeof (AsciiStr), "========= End =========\n\n");
+    AsciiStrCatS (AsciiBuffer, EFI_PAGE_SIZE, AsciiStr);
+
+    Size = StrSize (FilePath) + L_STR_SIZE (L"-0000-00-00-000000.txt");
+    Path = AllocatePool (Size);
+    UnicodeSPrint (Path,
+                   Size,
+                   L"%s-%04u-%02u-%02u-%02u%02u%02u.txt",
+                   FilePath,
+                   (UINT32) Date.Year,
+                   (UINT32) Date.Month,
+                   (UINT32) Date.Day,
+                   (UINT32) Date.Hour,
+                   (UINT32) Date.Minute,
+                   (UINT32) Date.Second
+    );
+    
+    Status = mFileSystem->OpenVolume (mFileSystem, &Fs);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "OCUI: Locating Writeable file system - %r\n", Status));
+    }
+
+    Status = SetFileData (Fs, Path, AsciiBuffer, AsciiStrLen (AsciiBuffer));
+    DEBUG ((DEBUG_INFO, "OCUI: Saving boot entries data to file - %r\n", Status));
+
+    if (AsciiBuffer != NULL) {
+      FreePool (AsciiBuffer);
+    }
+    if (Path != NULL) {
+      FreePool (Path);
+    }
+  } else {
+    DEBUG ((DEBUG_WARN, "OCUI: Cannot allocate memory for buffer\n"));
   }
 }
 
@@ -2697,6 +2785,9 @@ OcShowSimpleBootMenu (
       } else if (KeyIndex == OC_INPUT_FUNCTIONAL(10)) {
         TimeOutSeconds = 0;
         TakeScreenShot (L"ScreenShot");
+      } else if (KeyIndex == OC_INPUT_FUNCTIONAL(9)) {
+        TimeOutSeconds = 0;
+        SaveEntriesDataToFile (L"System-Entries", BootEntries, Count);
       } else if (KeyIndex == OC_INPUT_SPACEBAR) {
         HidePointer ();
         ShowAll = !ShowAll;
