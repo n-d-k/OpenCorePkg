@@ -289,77 +289,6 @@ InternalGetRecoveryOsBooter (
   return Status;
 }
 
-//
-// TODO: This should be less hardcoded.
-//
-VOID
-InternalSetBootEntryFlags (
-  IN OUT OC_BOOT_ENTRY   *BootEntry
-  )
-{
-  EFI_DEVICE_PATH_PROTOCOL  *DevicePathWalker;
-  FILEPATH_DEVICE_PATH      *FilePath;
-  UINTN                     Len;
-  UINTN                     Index;
-  BOOLEAN                   Result;
-  INTN                      CmpResult;
-
-  BootEntry->Type       = OcBootUnknown;
-  BootEntry->IsFolder   = FALSE;
-
-  DevicePathWalker = BootEntry->DevicePath;
-
-  if (DevicePathWalker == NULL) {
-    return;
-  }
-
-  //
-  // TODO: Move this to a new OcIsAppleRecoveryBootDevicePath function.
-  //
-  while (!IsDevicePathEnd (DevicePathWalker)) {
-    if ((DevicePathType (DevicePathWalker) == MEDIA_DEVICE_PATH)
-     && (DevicePathSubType (DevicePathWalker) == MEDIA_FILEPATH_DP)) {
-      FilePath = (FILEPATH_DEVICE_PATH *)DevicePathWalker;
-      Len      = OcFileDevicePathNameLen (FilePath);
-      if (Len > 0) {
-        //
-        // Only the trailer of the last (non-empty) FilePath node matters.
-        //
-        BootEntry->IsFolder = (FilePath->PathName[Len - 1] == L'\\');
-
-        if (BootEntry->Type == OcBootUnknown) {
-          Result = OcOverflowSubUN (
-                     Len,
-                     L_STR_LEN (L"com.apple.recovery.boot"),
-                     &Len
-                     );
-          if (!Result) {
-            for (Index = 0; Index < Len; ++Index) {
-              CmpResult = CompareMem (
-                            &FilePath->PathName[Index],
-                            L"com.apple.recovery.boot",
-                            L_STR_SIZE_NT (L"com.apple.recovery.boot")
-                            );
-              if (CmpResult == 0) {
-                BootEntry->Type = OcBootAppleRecovery;
-                break;
-              }
-            }
-          }
-        }
-      }
-    } else {
-      BootEntry->IsFolder = FALSE;
-    }
-
-    DevicePathWalker = NextDevicePathNode (DevicePathWalker);
-  }
-
-  if (BootEntry->Type == OcBootUnknown && OcIsAppleBootDevicePath (BootEntry->DevicePath)) { 
-    BootEntry->Type = OcBootApple;
-  }
-}
-
 EFI_STATUS
 InternalPrepareScanInfo (
   IN     APPLE_BOOT_POLICY_PROTOCOL       *BootPolicy,
@@ -578,7 +507,10 @@ InternalFillValidBootEntries (
     if (!IsDuplicated) {
       Entries[EntryIndex].DevicePath = DevicePath;
       Entries[EntryIndex].IsExternal = DevPathScanInfo->IsExternal;
-      InternalSetBootEntryFlags (&Entries[EntryIndex]);
+      Entries[EntryIndex].Type = OcGetBootDevicePathType (
+        Entries[EntryIndex].DevicePath,
+        &Entries[EntryIndex].IsFolder
+        );
       
       DEBUG ((
         DEBUG_BULK_INFO,
@@ -632,7 +564,10 @@ InternalFillValidBootEntries (
 
     Entries[EntryIndex].DevicePath = DevicePath;
     Entries[EntryIndex].IsExternal = DevPathScanInfo->IsExternal;
-    InternalSetBootEntryFlags (&Entries[EntryIndex]);
+    Entries[EntryIndex].Type = OcGetBootDevicePathType (
+      Entries[EntryIndex].DevicePath,
+      &Entries[EntryIndex].IsFolder
+      );
     ++EntryIndex;
   }
 

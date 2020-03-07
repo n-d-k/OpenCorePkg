@@ -1104,7 +1104,7 @@ SaveEntriesDataToFile (
     AsciiStrCatS (AsciiBuffer, EFI_PAGE_SIZE, AsciiStr);
     
     for (Index = 0; Index < Count; ++Index) {
-      if (Entries[Index].Type == OcBootSystem || Entries[Index].DevicePath == NULL) {
+      if (Entries[Index].Type == OC_BOOT_SYSTEM || Entries[Index].DevicePath == NULL) {
         continue;
       }
       
@@ -1182,14 +1182,14 @@ CreateIcon (
   TmpImage = NULL;
   
   switch (Type) {
-    case OcBootWindows:
+    case OC_BOOT_WINDOWS:
       if (StrStr (Name, L"10") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_win10.icns";
       } else {
         FilePath = L"EFI\\OC\\Icons\\os_win.icns";
       }
       break;
-    case OcBootApple:
+    case OC_BOOT_APPLE_OS:
       if (StrStr (Name, L"Install") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_Install.icns";
       } else if (StrStr (Name, L"Cata") != NULL) {
@@ -1202,10 +1202,13 @@ CreateIcon (
         FilePath = L"EFI\\OC\\Icons\\os_mac.icns";
       }
       break;
-    case OcBootAppleRecovery:
+    case OC_BOOT_APPLE_RECOVERY:
       FilePath = L"EFI\\OC\\Icons\\os_recovery.icns";
       break;
-    case OcBootCustom:
+    case OC_BOOT_APPLE_TIME_MACHINE:
+      FilePath = L"EFI\\OC\\Icons\\os_clone.icns";
+      break;
+    case OC_BOOT_CUSTOM:
       if (StrStr (Name, L"Free") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_freebsd.icns";
       } else if (StrStr (Name, L"Linux") != NULL) {
@@ -1226,10 +1229,13 @@ CreateIcon (
         FilePath = L"EFI\\OC\\Icons\\os_custom.icns";
       }
       break;
-    case OcBootSystem:
+    case OC_BOOT_APPLE_ANY:
+      FilePath = L"EFI\\OC\\Icons\\os_mac.icns";
+      break;
+    case OC_BOOT_SYSTEM:
       FilePath = L"EFI\\OC\\Icons\\func_resetnvram.icns";
       break;
-    case OcBootUnknown:
+    case OC_BOOT_UNKNOWN:
       FilePath = L"EFI\\OC\\Icons\\os_unknown.icns";
       break;
       
@@ -1904,6 +1910,9 @@ PrintDateTime (
   Str = NULL;
   Hour = 0;
   Status = gRT->GetTime (&DateTime, NULL);
+  if (EFI_ERROR (Status)) {
+    ZeroMem (&DateTime, sizeof (DateTime));
+  }
   
   if (!EFI_ERROR (Status) && ShowAll) {
     Hour = (UINTN) DateTime.Hour;
@@ -2690,8 +2699,9 @@ OcShowSimpleBootMenu (
     PrintOcVersion (Context->TitleSuffix, ShowAll);
     PrintDateTime (ShowAll);
     for (Index = 0, VisibleIndex = 0; Index < MIN (Count, OC_INPUT_MAX); ++Index) {
-      if ((BootEntries[Index].Type == OcBootAppleRecovery && !ShowAll)
-          || (BootEntries[Index].Type == OcBootUnknown && !ShowAll)
+      if ((BootEntries[Index].Type == OC_BOOT_APPLE_RECOVERY && !ShowAll)
+          || (BootEntries[Index].Type == OC_BOOT_APPLE_TIME_MACHINE && !ShowAll)
+          || (BootEntries[Index].Type == OC_BOOT_UNKNOWN && !ShowAll)
           || (BootEntries[Index].DevicePath == NULL && !ShowAll)
           || (BootEntries[Index].IsAuxiliary && !ShowAll)) {
         DefaultEntry = DefaultEntry == Index ? ++DefaultEntry : DefaultEntry;
@@ -2792,7 +2802,7 @@ OcShowSimpleBootMenu (
         HidePointer ();
         ShowAll = !ShowAll;
         while ((BootEntries[DefaultEntry].IsAuxiliary && !ShowAll && DefaultEntry > 0)
-               || (BootEntries[DefaultEntry].Type == OcBootSystem && !ShowAll && DefaultEntry > 0)) {
+               || (BootEntries[DefaultEntry].Type == OC_BOOT_SYSTEM && !ShowAll && DefaultEntry > 0)) {
           --DefaultEntry;
         }
         TimeOutSeconds = 0;

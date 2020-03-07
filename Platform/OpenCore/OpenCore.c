@@ -75,8 +75,7 @@ OcStartImage (
   
   DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
   
-  if (Chosen->Type == OcBootApple || Chosen->Type == OcBootAppleRecovery
-    || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
+  if (Chosen->Type == OC_BOOT_APPLE_ANY || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
     DEBUG ((DEBUG_INFO, "OC: OcLoadBooterUefiSupport...\n"));
     OcLoadBooterUefiSupport (&mOpenCoreConfiguration);
     

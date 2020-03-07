@@ -43,7 +43,7 @@ OcDescribeBootEntry (
   //
   // Custom entries need no special description.
   //
-  if (BootEntry->Type == OcBootCustom) {
+  if (BootEntry->Type == OC_BOOT_CUSTOM) {
     return EFI_SUCCESS;
   }
 
@@ -92,13 +92,13 @@ OcDescribeBootEntry (
   // on an encrypted volume anyway.
   //
   //
-  // Windows boot entry may have a custom name, so ensure OcBootWindows is set correctly.
+  // Windows boot entry may have a custom name, so ensure OC_BOOT_WINDOWS is set correctly.
   //
-  if (BootEntry->Type == OcBootUnknown) {
+  if (BootEntry->Type == OC_BOOT_UNKNOWN) {
     DEBUG ((DEBUG_INFO, "Trying to detect Microsoft BCD\n"));
     Status = ReadFileSize (FileSystem, L"\\EFI\\Microsoft\\Boot\\BCD", &BcdSize);
     if (!EFI_ERROR (Status)) {
-      BootEntry->Type = OcBootWindows;
+      BootEntry->Type = OC_BOOT_WINDOWS;
       if (BootEntry->Name == NULL) {
         BootEntry->Name = AllocateCopyPool (sizeof (L"BOOTCAMP Windows"), L"BOOTCAMP Windows");
       }
@@ -110,8 +110,8 @@ OcDescribeBootEntry (
     if (BootEntry->Name != NULL
       && (!StrCmp (BootEntry->Name, L"Recovery HD")
        || !StrCmp (BootEntry->Name, L"Recovery"))) {
-      if (BootEntry->Type == OcBootUnknown || BootEntry->Type == OcBootApple) {
-        BootEntry->Type = OcBootAppleRecovery;
+      if (BootEntry->Type == OC_BOOT_UNKNOWN || BootEntry->Type == OC_BOOT_APPLE_OS) {
+        BootEntry->Type = OC_BOOT_APPLE_RECOVERY;
         BootEntry->IsAuxiliary = TRUE;
       }
       RecoveryBootName = InternalGetAppleRecoveryName (FileSystem, BootDirectoryName);
@@ -194,20 +194,20 @@ internalFillCustomBootEntries (
       OcFreeBootEntries (Entries, EntryIndex + 1);
       return EFI_OUT_OF_RESOURCES;
     }
-    // Properly re-assign the boot type for custom entries according the pathname instead of using OcBootCustom.
+    // Properly re-assign the boot type for custom entries according the pathname instead of using OC_BOOT_CUSTOM.
 
     if (StrStr(PathName, L"\\EFI\\Microsoft\\Boot") != NULL) {
-      Entries[EntryIndex].Type = OcBootWindows;
+      Entries[EntryIndex].Type = OC_BOOT_WINDOWS;
     } else if (StrStr(PathName, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
-      Entries[EntryIndex].Type = OcBootApple;
+      Entries[EntryIndex].Type = OC_BOOT_APPLE_OS;
     } else {
-      Entries[EntryIndex].Type = OcBootCustom;
+      Entries[EntryIndex].Type = OC_BOOT_CUSTOM;
     }
     //
     // Check for possible Windows entry in custom entries if not yet found with auto scan when Windows boot
     // was called with hotkey W, Will skip the rest if find one here.
     //
-    if (Context->PickerCommand == OcPickerBootWindows && Entries[EntryIndex].Type == OcBootWindows) {
+    if (Context->PickerCommand == OcPickerBootWindows && Entries[EntryIndex].Type == OC_BOOT_WINDOWS) {
         Index = Context->AbsoluteEntryCount;
         BootWindowsFound = TRUE;
     }
@@ -464,7 +464,7 @@ OcScanForBootEntries (
         return EFI_OUT_OF_RESOURCES;
       }
       
-      Entries[EntryIndex].Type = OcBootCustom;
+      Entries[EntryIndex].Type = OC_BOOT_CUSTOM;
       Entries[EntryIndex].IsAuxiliary = TRUE;
 
       UnicodeUefiSlashes (PathName);
@@ -490,7 +490,7 @@ OcScanForBootEntries (
         return EFI_OUT_OF_RESOURCES;
       }
 
-      Entries[EntryIndex].Type         = OcBootSystem;
+      Entries[EntryIndex].Type         = OC_BOOT_SYSTEM;
       Entries[EntryIndex].IsAuxiliary  = TRUE;
       Entries[EntryIndex].SystemAction = InternalSystemActionResetNvram;
       ++EntryIndex;
@@ -521,7 +521,7 @@ OcLoadBootEntry (
   EFI_HANDLE                 EntryHandle;
   INTERNAL_DMG_LOAD_CONTEXT  DmgLoadContext;
 
-  if (BootEntry->Type == OcBootSystem) {
+  if (BootEntry->Type == OC_BOOT_SYSTEM) {
     ASSERT (BootEntry->SystemAction != NULL);
     return BootEntry->SystemAction ();
   }
