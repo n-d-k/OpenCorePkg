@@ -45,6 +45,8 @@
   VariableManagement.c
   OcSimpleBootMenuInternal.h
   OcSimpleBootMenu.c
+  FontData.h
+  ImageSupport.c
 
 [Packages]
   OpenCorePkg/OpenCorePkg.dec

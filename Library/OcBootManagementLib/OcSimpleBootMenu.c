@@ -12,51 +12,136 @@
   WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 **/
 
-#include <Guid/AppleVariable.h>
-
-#include <Protocol/GraphicsOutput.h>
-#include <Protocol/SimpleTextOut.h>
-#include <Protocol/UgaDraw.h>
-#include <Protocol/AppleKeyMapAggregator.h>
-#include <Protocol/SimplePointer.h>
-
-#include <IndustryStandard/AppleCsrConfig.h>
-
-#include <Library/BaseLib.h>
-#include <Library/BaseMemoryLib.h>
-#include <Library/OcDebugLogLib.h>
-#include <Library/DevicePathLib.h>
-#include <Library/MemoryAllocationLib.h>
-#include <Library/OcAppleKeyMapLib.h>
-#include <Library/OcBootManagementLib.h>
-#include <Library/OcConsoleLib.h>
-#include <Library/PrintLib.h>
-#include <Library/UefiBootServicesTableLib.h>
-#include <Library/UefiRuntimeServicesTableLib.h>
-#include <Library/UefiLib.h>
-#include <Library/OcPngLib.h>
-#include <Library/OcFileLib.h>
-#include <Library/OcStorageLib.h>
-#include <Library/OcTimerLib.h>
-
-#include <BootManagementInternal.h>
 #include <OcSimpleBootMenuInternal.h>
-
+#include <FontData.h>
 
 STATIC
-VOID
-FreeImage (
-  IN NDK_UI_IMAGE    *Image
-  )
-{
-  if (Image != NULL) {
-    if (Image->Bitmap != NULL) {
-      FreePool (Image->Bitmap);
-      Image->Bitmap = NULL;
-    }
-    FreePool (Image);
-  }
-}
+BOOLEAN
+mAllowSetDefault;
+
+STATIC
+UINTN
+mDefaultEntry;
+
+STATIC
+INTN
+mCurrentSelection;
+
+/*========= Pointer Setting ============*/
+
+POINTERS mPointer = {NULL, NULL, NULL, NULL,
+{0, 0, POINTER_WIDTH, POINTER_HEIGHT},
+{0, 0, POINTER_WIDTH, POINTER_HEIGHT}, 0,
+{0, 0, 0, FALSE, FALSE}, NoEvents};
+
+STATIC
+INTN
+mPointerSpeed = 6;
+
+STATIC
+UINT64
+mDoubleClickTime = 500;
+
+/*========== Graphic UI Setting ==========*/
+
+STATIC
+EFI_GRAPHICS_OUTPUT_PROTOCOL *
+mGraphicsOutput;
+
+STATIC
+EFI_UGA_DRAW_PROTOCOL *
+mUgaDraw;
+
+STATIC
+INTN
+mScreenWidth;
+
+STATIC
+INTN
+mScreenHeight;
+
+STATIC
+INTN
+mFontWidth = 9;
+
+STATIC
+INTN
+mFontHeight = 18;
+
+STATIC
+INTN
+mTextHeight = 19;
+
+STATIC
+INTN
+mTextScale = 0;  // not actual scale, will be set after getting screen resolution. (16 will be no scaling, 28 will be for 4k screen)
+
+STATIC
+INTN
+mUiScale = 0;
+
+STATIC
+UINTN
+mIconSpaceSize;  // Default 144/288 pixels space to contain icons with size 128x128/256x256
+
+STATIC
+UINTN
+mIconPaddingSize;
+
+STATIC
+EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *
+mFileSystem = NULL;
+
+NDK_UI_IMAGE *
+mFontImage = NULL;
+
+BOOLEAN
+mProportional = TRUE;
+
+BOOLEAN
+mDarkMode = TRUE;
+
+STATIC
+NDK_UI_IMAGE *
+mBackgroundImage = NULL;
+
+STATIC
+NDK_UI_IMAGE *
+mMenuImage = NULL;
+
+STATIC
+NDK_UI_IMAGE *
+mSelectionImage = NULL;
+
+BOOLEAN
+mSelectorUsed = TRUE;
+
+BOOLEAN
+mAlphaEffect = TRUE;
+
+/* Colors are now customized by the optional small 16x16 pixels png color example files in icons folder (Can be anysize only 1st pixels will be used for color setting).
+   font_color.png (Entry discription color and selection color)
+   background_color.png (Background color)
+   Background.png (Wallpaper bacground instead, preferly matching with screen resolution setting.)
+ 
+   Background.png will be checked first, will use it if found in icons foler, if not found, then background_color.png will be checked,
+   if not found then 1st pixel color (top/left pixel) of fontn.
+ */
+
+/*=========== Default colors settings ==============*/
+
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL mTransparentPixel  = {0x00, 0x00, 0x00, 0x00};
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL mBluePixel  = {0x7f, 0x0f, 0x0f, 0xff};
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL mBlackPixel  = {0x00, 0x00, 0x00, 0xff};
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL mLowWhitePixel  = {0xb8, 0xbd, 0xbf, 0xff};
+
+// Selection and Entry's description font color
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL *mFontColorPixel = &mLowWhitePixel;
+
+// Background color
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL *mBackgroundPixel = &mBlackPixel;
+
+/*=============== Functions =============*/
 
 STATIC
 BOOLEAN
@@ -116,69 +201,6 @@ FileExist (
   return FALSE;
 }
 
-STATIC
-NDK_UI_IMAGE *
-CreateImage (
-  IN UINT16       Width,
-  IN UINT16       Height,
-  IN BOOLEAN      IsAlpha
-  )
-{
-  NDK_UI_IMAGE    *NewImage;
-  
-  NewImage = (NDK_UI_IMAGE *) AllocateZeroPool (sizeof (NDK_UI_IMAGE));
-  
-  if (NewImage == NULL) {
-    return NULL;
-  }
-  
-  if (Width * Height == 0) {
-    FreeImage (NewImage);
-    return NULL;
-  }
-  
-  NewImage->Bitmap = AllocateZeroPool (Width * Height * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
-  if (NewImage->Bitmap == NULL) {
-    FreePool (NewImage);
-    return NULL;
-  }
-  
-  NewImage->Width = Width;
-  NewImage->Height = Height;
-  NewImage->IsAlpha = IsAlpha;
-  
-  return NewImage;
-}
-
-STATIC
-VOID
-RestrictImageArea (
-  IN     NDK_UI_IMAGE       *Image,
-  IN     INTN               AreaXpos,
-  IN     INTN               AreaYpos,
-  IN OUT INTN               *AreaWidth,
-  IN OUT INTN               *AreaHeight
-  )
-{
-  if (Image == NULL || AreaWidth == NULL || AreaHeight == NULL) {
-    DEBUG ((DEBUG_INFO, "OCUI: invalid argument\n"));
-    return;
-  }
-
-  if (AreaXpos >= Image->Width || AreaYpos >= Image->Height) {
-    *AreaWidth  = 0;
-    *AreaHeight = 0;
-  } else {
-    if (*AreaWidth > Image->Width - AreaXpos) {
-      *AreaWidth = Image->Width - AreaXpos;
-    }
-    if (*AreaHeight > Image->Height - AreaYpos) {
-      *AreaHeight = Image->Height - AreaYpos;
-    }
-  }
-}
-
-STATIC
 VOID
 DrawImageArea (
   IN NDK_UI_IMAGE      *Image,
@@ -255,386 +277,6 @@ DrawImageArea (
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_INFO, "OCUI: Draw Image Area...%r\n", Status));
   }
-}
-
-STATIC
-VOID
-RawComposeOnFlat (
-  IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompBasePtr,
-  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopBasePtr,
-  IN     INTN                          Width,
-  IN     INTN                          Height,
-  IN     INTN                          CompLineOffset,
-  IN     INTN                          TopLineOffset
-  )
-{
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *TopPtr;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *CompPtr;
-  UINT32                               TopAlpha;
-  UINT32                               RevAlpha;
-  UINTN                                Temp;
-  INT64                                X;
-  INT64                                Y;
-
-  if (CompBasePtr == NULL || TopBasePtr == NULL) {
-    return;
-  }
-
-  for (Y = 0; Y < Height; ++Y) {
-    TopPtr = TopBasePtr;
-    CompPtr = CompBasePtr;
-    for (X = 0; X < Width; ++X) {
-      TopAlpha = TopPtr->Reserved;
-      RevAlpha = 255 - TopAlpha;
-
-      Temp = ((UINT8) CompPtr->Blue * RevAlpha) + ((UINT8) TopPtr->Blue * TopAlpha);
-      CompPtr->Blue = (UINT8) (Temp / 255);
-
-      Temp = ((UINT8) CompPtr->Green * RevAlpha) + ((UINT8) TopPtr->Green * TopAlpha);
-      CompPtr->Green = (UINT8) (Temp / 255);
-
-      Temp = ((UINT8) CompPtr->Red * RevAlpha) + ((UINT8) TopPtr->Red * TopAlpha);
-      CompPtr->Red = (UINT8) (Temp / 255);
-
-      CompPtr->Reserved = (UINT8)(255);
-
-      TopPtr++;
-      CompPtr++;
-    }
-    TopBasePtr += TopLineOffset;
-    CompBasePtr += CompLineOffset;
-  }
-}
-
-STATIC
-VOID
-RawCopy (
-  IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompBasePtr,
-  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopBasePtr,
-  IN     INTN                          Width,
-  IN     INTN                          Height,
-  IN     INTN                          CompLineOffset,
-  IN     INTN                          TopLineOffset
-  )
-{
-  INTN       X;
-  INTN       Y;
-
-  if (CompBasePtr == NULL || TopBasePtr == NULL) {
-    return;
-  }
-
-  for (Y = 0; Y < Height; ++Y) {
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopPtr = TopBasePtr;
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompPtr = CompBasePtr;
-    for (X = 0; X < Width; ++X) {
-      *CompPtr = *TopPtr;
-      TopPtr++;
-      CompPtr++;
-    }
-    TopBasePtr += TopLineOffset;
-    CompBasePtr += CompLineOffset;
-  }
-}
-
-STATIC
-VOID
-RawCopyAlpha (
-  IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompBasePtr,
-  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopBasePtr,
-  IN     INTN                          Width,
-  IN     INTN                          Height,
-  IN     INTN                          CompLineOffset,
-  IN     INTN                          TopLineOffset,
-  IN     BOOLEAN                       Faded
-  )
-{
-  INTN       X;
-  INTN       Y;
-  INTN       Alpha;
-  INTN       InvAlpha;
-
-  if (CompBasePtr == NULL || TopBasePtr == NULL) {
-    return;
-  }
-  
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL *FirstTopPtr = TopBasePtr;
-  for (Y = 0; Y < Height; ++Y) {
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopPtr = TopBasePtr;
-    EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompPtr = CompBasePtr;
-    for (X = 0; X < Width; ++X) {
-      if ((TopPtr->Red != FirstTopPtr->Red
-          && TopPtr->Blue != FirstTopPtr->Blue
-          && TopPtr->Green != FirstTopPtr->Green
-          && TopPtr->Reserved != FirstTopPtr->Reserved)
-          || (TopPtr->Red > 0
-          && TopPtr->Blue > 0
-          && TopPtr->Green > 0)
-          ) {
-        Alpha =  Faded ? (mMenuFadeIntensity * TopPtr->Reserved) / 255 : TopPtr->Reserved + 1;
-        InvAlpha = Faded ? 256 - ((mMenuFadeIntensity * TopPtr->Reserved) / 255) : 256 - TopPtr->Reserved;
-        CompPtr->Blue = (UINT8) ((TopPtr->Blue * Alpha + CompPtr->Blue * InvAlpha) >> 8);
-        CompPtr->Green = (UINT8) ((TopPtr->Green * Alpha + CompPtr->Green * InvAlpha) >> 8);
-        CompPtr->Red = (UINT8) ((TopPtr->Red * Alpha + CompPtr->Red * InvAlpha) >> 8);
-        CompPtr->Reserved = (UINT8) (255);
-      }
-      TopPtr++;
-      CompPtr++;
-    }
-    TopBasePtr += TopLineOffset;
-    CompBasePtr += CompLineOffset;
-  }
-}
-
-STATIC
-VOID
-RawCompose (
-  IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompBasePtr,
-  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopBasePtr,
-  IN     INTN                          Width,
-  IN     INTN                          Height,
-  IN     INTN                          CompLineOffset,
-  IN     INTN                          TopLineOffset
-  )
-{
-  INT64                                X;
-  INT64                                Y;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *TopPtr;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *CompPtr;
-  INTN                                 TopAlpha;
-  INTN                                 Alpha;
-  INTN                                 CompAlpha;
-  INTN                                 RevAlpha;
-  INTN                                 TempAlpha;
-
-  if (CompBasePtr == NULL || TopBasePtr == NULL) {
-    return;
-  }
-
-  for (Y = 0; Y < Height; ++Y) {
-    TopPtr = TopBasePtr;
-    CompPtr = CompBasePtr;
-    for (X = 0; X < Width; ++X) {
-      TopAlpha = TopPtr->Reserved & 0xFF;
-      
-      if (TopAlpha == 255) {
-        CompPtr->Blue  = TopPtr->Blue;
-        CompPtr->Green = TopPtr->Green;
-        CompPtr->Red   = TopPtr->Red;
-        CompPtr->Reserved = (UINT8) TopAlpha;
-      } else if (TopAlpha != 0) {
-        CompAlpha = CompPtr->Reserved & 0xFF;
-        RevAlpha = 255 - TopAlpha;
-        TempAlpha = CompAlpha * RevAlpha;
-        TopAlpha *= 255;
-        Alpha = TopAlpha + TempAlpha;
-
-        CompPtr->Blue = (UINT8) ((TopPtr->Blue * TopAlpha + CompPtr->Blue * TempAlpha) / Alpha);
-        CompPtr->Green = (UINT8) ((TopPtr->Green * TopAlpha + CompPtr->Green * TempAlpha) / Alpha);
-        CompPtr->Red = (UINT8) ((TopPtr->Red * TopAlpha + CompPtr->Red * TempAlpha) / Alpha);
-        CompPtr->Reserved = (UINT8) (Alpha / 255);
-      }
-      TopPtr++;
-      CompPtr++;
-    }
-    TopBasePtr += TopLineOffset;
-    CompBasePtr += CompLineOffset;
-  }
-}
-
-STATIC
-VOID
-ComposeImage (
-  IN OUT NDK_UI_IMAGE        *Image,
-  IN     NDK_UI_IMAGE        *TopImage,
-  IN     INTN                Xpos,
-  IN     INTN                Ypos
-  )
-{
-  INTN                       CompWidth;
-  INTN                       CompHeight;
-  
-  if (TopImage == NULL || Image == NULL) {
-    return;
-  }
-
-  CompWidth  = TopImage->Width;
-  CompHeight = TopImage->Height;
-  RestrictImageArea (Image, Xpos, Ypos, &CompWidth, &CompHeight);
-
-  if (CompWidth > 0) {
-    if (Image->IsAlpha && mBackgroundImage == NULL) {
-      Image->IsAlpha = FALSE;
-    }
-    if (TopImage->IsAlpha) {
-      if (Image->IsAlpha) {
-        RawCompose (Image->Bitmap + Ypos * Image->Width + Xpos,
-                    TopImage->Bitmap,
-                    CompWidth,
-                    CompHeight,
-                    Image->Width,
-                    TopImage->Width
-                    );
-      } else {
-        RawComposeOnFlat (Image->Bitmap + Ypos * Image->Width + Xpos,
-                          TopImage->Bitmap,
-                          CompWidth,
-                          CompHeight,
-                          Image->Width,
-                          TopImage->Width
-                          );
-      }
-    } else {
-      RawCopy (Image->Bitmap + Ypos * Image->Width + Xpos,
-               TopImage->Bitmap,
-               CompWidth,
-               CompHeight,
-               Image->Width,
-               TopImage->Width
-               );
-    }
-  }
-}
-
-STATIC
-VOID
-FillImage (
-  IN OUT NDK_UI_IMAGE                  *Image,
-  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *Color
-  )
-{
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        FillColor;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *PixelPtr;
-  INTN                                 Index;
-  
-  if (Image == NULL || Color == NULL) {
-    return;
-  }
-  
-
-  if (!Image->IsAlpha) {
-    FillColor.Reserved = 0;
-  }
-
-  FillColor = *Color;
-
-  PixelPtr = Image->Bitmap;
-  for (Index = 0; Index < Image->Width * Image->Height; ++Index) {
-    *PixelPtr++ = FillColor;
-  }
-}
-
-STATIC
-NDK_UI_IMAGE *
-CreateFilledImage (
-  IN INTN                          Width,
-  IN INTN                          Height,
-  IN BOOLEAN                       IsAlpha,
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL *Color
-  )
-{
-  NDK_UI_IMAGE      *NewImage;
-  
-  NewImage = CreateImage (Width, Height, IsAlpha);
-  if (NewImage == NULL) {
-    return NULL;
-  }
-  
-  FillImage (NewImage, Color);
-  
-  return NewImage;
-}
-
-STATIC
-NDK_UI_IMAGE *
-CopyImage (
-  IN NDK_UI_IMAGE   *Image
-  )
-{
-  NDK_UI_IMAGE      *NewImage;
-  if (Image == NULL || (Image->Width * Image->Height) == 0) {
-    return NULL;
-  }
-
-  NewImage = CreateImage (Image->Width, Image->Height, Image->IsAlpha);
-  if (NewImage == NULL) {
-    return NULL;
-  }
-  
-  CopyMem (NewImage->Bitmap, Image->Bitmap, (UINTN) (Image->Width * Image->Height * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)));
-  return NewImage;
-}
-
-STATIC
-NDK_UI_IMAGE *
-CopyScaledImage (
-  IN NDK_UI_IMAGE      *OldImage,
-  IN INTN              Ratio
-  )
-{
-  BOOLEAN                             Grey = FALSE;
-  NDK_UI_IMAGE                        *NewImage;
-  INTN                                x, x0, x1, x2, y, y0, y1, y2;
-  INTN                                NewH, NewW;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL       *Dest;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL       *Src;
-  INTN                                OldW;
-
-  if (Ratio < 0) {
-    Ratio = -Ratio;
-    Grey = TRUE;
-  }
-
-  if (OldImage == NULL) {
-    return NULL;
-  }
-  Src =  OldImage->Bitmap;
-  OldW = OldImage->Width;
-
-  NewW = (OldImage->Width * Ratio) >> 4;
-  NewH = (OldImage->Height * Ratio) >> 4;
-
-
-  if (Ratio == 16) {
-    NewImage = CopyImage (OldImage);
-  } else {
-    NewImage = CreateImage (NewW, NewH, OldImage->IsAlpha);
-    if (NewImage == NULL) {
-      return NULL;
-    }
-    Dest = NewImage->Bitmap;
-    for (y = 0; y < NewH; y++) {
-      y1 = (y << 4) / Ratio;
-      y0 = ((y1 > 0) ? (y1-1) : y1) * OldW;
-      y2 = ((y1 < (OldImage->Height - 1)) ? (y1+1) : y1) * OldW;
-      y1 *= OldW;
-      for (x = 0; x < NewW; x++) {
-        x1 = (x << 4) / Ratio;
-        x0 = (x1 > 0) ? (x1 - 1) : x1;
-        x2 = (x1 < (OldW - 1)) ? (x1+1) : x1;
-        Dest->Blue = (UINT8)(((INTN)Src[x1+y1].Blue * 2 + Src[x0+y1].Blue +
-                           Src[x2+y1].Blue + Src[x1+y0].Blue + Src[x1+y2].Blue) / 6);
-        Dest->Green = (UINT8)(((INTN)Src[x1+y1].Green * 2 + Src[x0+y1].Green +
-                           Src[x2+y1].Green + Src[x1+y0].Green + Src[x1+y2].Green) / 6);
-        Dest->Red = (UINT8)(((INTN)Src[x1+y1].Red * 2 + Src[x0+y1].Red +
-                           Src[x2+y1].Red + Src[x1+y0].Red + Src[x1+y2].Red) / 6);
-        Dest->Reserved = Src[x1+y1].Reserved;
-        Dest++;
-      }
-    }
-  }
-  if (Grey) {
-    Dest = NewImage->Bitmap;
-    for (y = 0; y < NewH; y++) {
-      for (x = 0; x < NewW; x++) {
-        Dest->Blue = (UINT8)((INTN)((UINTN)Dest->Blue + (UINTN)Dest->Green + (UINTN)Dest->Red) / 3);
-        Dest->Green = Dest->Red = Dest->Blue;
-        Dest++;
-      }
-    }
-  }
-
-  return NewImage;
 }
 
 STATIC
@@ -808,21 +450,6 @@ BltImageAlpha (
 
 STATIC
 VOID
-BltImage (
-  IN NDK_UI_IMAGE        *Image,
-  IN INTN                Xpos,
-  IN INTN                Ypos
-  )
-{
-  if (Image == NULL) {
-    return;
-  }
-  
-  DrawImageArea (Image, 0, 0, 0, 0, Xpos, Ypos);
-}
-
-STATIC
-VOID
 BltMenuImage (
   IN NDK_UI_IMAGE        *Image,
   IN INTN                Xpos,
@@ -848,87 +475,17 @@ BltMenuImage (
            mBackgroundImage->Width
            );
   
-  RawCopyAlpha (NewImage->Bitmap,
-                Image->Bitmap,
-                NewImage->Width,
-                NewImage->Height,
-                NewImage->Width,
-                Image->Width,
-                mAlphaEffect
-                );
+  RawComposeAlpha (NewImage->Bitmap,
+                   Image->Bitmap,
+                   NewImage->Width,
+                   NewImage->Height,
+                   NewImage->Width,
+                   Image->Width,
+                   mAlphaEffect ? 150 : 0
+                   );
   
   DrawImageArea (NewImage, 0, 0, 0, 0, Xpos, Ypos);
   FreeImage (NewImage);
-}
-
-STATIC
-NDK_UI_IMAGE *
-DecodePNG (
-  IN VOID                          *Buffer,
-  IN UINT32                        BufferSize
-  )
-{
-  EFI_STATUS                       Status;
-  NDK_UI_IMAGE                     *NewImage;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL    *Pixel;
-  VOID                             *Data;
-  UINT32                           Width;
-  UINT32                           Height;
-  UINT8                            *DataWalker;
-  UINTN                            X;
-  UINTN                            Y;
-  BOOLEAN                          IsAlpha;
-  
-  if (Buffer == NULL) {
-    return NULL;
-  }
-  
-  Status = DecodePng (
-               Buffer,
-               BufferSize,
-               &Data,
-               &Width,
-               &Height,
-               &IsAlpha
-              );
-  if (EFI_ERROR (Status)) {
-    DEBUG ((DEBUG_INFO, "OCUI: DecodePNG...%r\n", Status));
-    if (Buffer != NULL) {
-      FreePool (Buffer);
-    }
-    return NULL;
-  }
-    
-  NewImage = CreateImage ((INTN) Width, (INTN) Height, IsAlpha);
-  if (NewImage == NULL) {
-    if (Buffer != NULL) {
-      FreePool (Buffer);
-    }
-    return NULL;
-  }
-  
-  Pixel = (EFI_GRAPHICS_OUTPUT_BLT_PIXEL *) NewImage->Bitmap;
-  DataWalker = (UINT8 *) Data;
-  for (Y = 0; Y < NewImage->Height; Y++) {
-    for (X = 0; X < NewImage->Width; X++) {
-      Pixel->Red = *DataWalker++;
-      Pixel->Green = *DataWalker++;
-      Pixel->Blue = *DataWalker++;
-      Pixel->Reserved = 255 - *DataWalker++;
-      Pixel++;
-    }
-  }
-  
-  if (Buffer != NULL) {
-    FreePool (Buffer);
-  }
-  
-  if (Data != NULL) {
-    FreePool (Data);
-  }
-  
-  NewImage->IsAlpha = IsAlpha;
-  return NewImage;
 }
 
 STATIC
@@ -1350,14 +907,14 @@ SwitchIconSelection (
       
       Offset = (NewImage->Width - SelectorImage->Width) >> 1;
       
-      RawCopyAlpha (NewImage->Bitmap + Offset * NewImage->Width + Offset,
-                    SelectorImage->Bitmap,
-                    SelectorImage->Width,
-                    SelectorImage->Height,
-                    NewImage->Width,
-                    SelectorImage->Width,
-                    TRUE
-                    );
+      RawComposeAlpha (NewImage->Bitmap + Offset * NewImage->Width + Offset,
+                       SelectorImage->Bitmap,
+                       SelectorImage->Width,
+                       SelectorImage->Height,
+                       NewImage->Width,
+                       SelectorImage->Width,
+                       200
+                       );
       
       FreeImage (SelectorImage);
     } else {
@@ -1382,14 +939,14 @@ SwitchIconSelection (
              );
   }
   
-  RawCopyAlpha (NewImage->Bitmap + mIconPaddingSize * NewImage->Width + mIconPaddingSize,
-                Icon->Bitmap,
-                Icon->Width,
-                Icon->Height,
-                NewImage->Width,
-                Icon->Width,
-                (!Selected && mAlphaEffect)
-                );
+  RawComposeAlpha (NewImage->Bitmap + mIconPaddingSize * NewImage->Width + mIconPaddingSize,
+                   Icon->Bitmap,
+                   Icon->Width,
+                   Icon->Height,
+                   NewImage->Width,
+                   Icon->Width,
+                   (!Selected && mAlphaEffect) ? 150 : 0
+                   );
   
   FreeImage (Icon);
   BltImage (NewImage, Xpos, Ypos);
@@ -1406,7 +963,7 @@ ClearScreen (
   
   if (FileExist (L"EFI\\OC\\Icons\\Background4k.png") && mScreenHeight >= 2160) {
     mBackgroundImage = DecodePNGFile (L"EFI\\OC\\Icons\\Background4k.png");
-  } else if (FileExist (L"EFI\\OC\\Icons\\Background4k.png")) {
+  } else if (FileExist (L"EFI\\OC\\Icons\\Background.png")) {
     mBackgroundImage = DecodePNGFile (L"EFI\\OC\\Icons\\Background.png");
   }
   
@@ -1875,14 +1432,14 @@ PrintTextGraphicXY (
   
   if (Faded) {
     NewImage = CreateImage (TextImage->Width, TextImage->Height, TRUE);
-    RawCopyAlpha (NewImage->Bitmap,
-                  TextImage->Bitmap,
-                  NewImage->Width,
-                  NewImage->Height,
-                  NewImage->Width,
-                  TextImage->Width,
-                  TRUE
-                  );
+    RawComposeAlpha (NewImage->Bitmap,
+                     TextImage->Bitmap,
+                     NewImage->Width,
+                     NewImage->Height,
+                     NewImage->Width,
+                     TextImage->Width,
+                     150
+                     );
     FreeImage (TextImage);
     BltImageAlpha (NewImage, Xpos, Ypos, &mTransparentPixel, 16);
   } else {
@@ -2001,14 +1558,14 @@ PrintTimeOutMessage (
       return !(Timeout > 0);
     }
     
-    RawCopyAlpha (NewImage->Bitmap,
-                  TextImage->Bitmap,
-                  NewImage->Width,
-                  NewImage->Height,
-                  NewImage->Width,
-                  TextImage->Width,
-                  TRUE
-                  );
+    RawComposeAlpha (NewImage->Bitmap,
+                     TextImage->Bitmap,
+                     NewImage->Width,
+                     NewImage->Height,
+                     NewImage->Width,
+                     TextImage->Width,
+                     150
+                     );
     
     FreeImage (TextImage);
     BltImageAlpha (NewImage, (mScreenWidth - NewImage->Width) / 2, (mScreenHeight / 4) * 3, &mTransparentPixel, 16);
@@ -2103,14 +1660,14 @@ DrawPointer (
            (UINTN) (POINTER_WIDTH * POINTER_HEIGHT * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL))
            );
 
-  RawCopyAlpha (mPointer.NewImage->Bitmap,
-                mPointer.Pointer->Bitmap,
-                mPointer.NewImage->Width,
-                mPointer.NewImage->Height,
-                mPointer.NewImage->Width,
-                mPointer.Pointer->Width,
-                FALSE
-                );
+  RawComposeAlpha (mPointer.NewImage->Bitmap,
+                   mPointer.Pointer->Bitmap,
+                   mPointer.NewImage->Width,
+                   mPointer.NewImage->Height,
+                   mPointer.NewImage->Width,
+                   mPointer.Pointer->Width,
+                   0
+                   );
   
   DrawImageArea (mPointer.NewImage,
                  0,
