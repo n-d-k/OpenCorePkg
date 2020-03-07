@@ -31,6 +31,8 @@
 
 [Sources]
   BitmapFont.c
+  BmfFile.h
+  BmfLib.h
   BootLiquor.c
   BootLiquor.h
   GuiApp.c
@@ -39,9 +41,7 @@
   Input/InputSimAbsPtr.c
   Input/InputSimTextIn.c
   OcBootstrap.c
-  Output/OutputFbGop.c
-  #Output/OutputStGop.c
-  Output/StGopShared.c
+  Output/OutputStGop.c
   Views/BootPicker.c
 
 [Packages]
@@ -66,7 +66,6 @@
   DebugLib
   FrameBufferBltLib
   MemoryAllocationLib
-  MtrrLib
   OcBootManagementLib
   OcGuardLib
   OcPngLib
