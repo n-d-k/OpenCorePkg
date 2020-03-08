@@ -1957,6 +1957,9 @@ OcWaitForKeyIndex (
   UINT64                             EndTime;
   UINTN                              CsrActiveConfigSize;
   INTN                               KeyClick;
+  INTN                               CycleCount;
+  
+  CycleCount = 0;
   
   CurrTime  = GetTimeInNanoSecond (GetPerformanceCounter ());
   EndTime   = CurrTime + Timeout * 1000000ULL;
@@ -1984,6 +1987,18 @@ OcWaitForKeyIndex (
           KeyClick = CheckIconClick ();
           if (KeyClick >= 0) {
             return KeyClick;
+          }
+          break;
+        case MouseMove:
+          CycleCount++;
+          mPointer.MouseEvent = NoEvents;
+          if (CycleCount == 10) {
+            KeyClick = CheckIconClick ();
+            if (KeyClick >= 0 && KeyClick != mCurrentSelection) {
+              mCurrentSelection = KeyClick;
+              return OC_INPUT_POINTER;
+            }
+            CycleCount = 0;
           }
           break;
         default:
