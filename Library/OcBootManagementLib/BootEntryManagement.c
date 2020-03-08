@@ -43,7 +43,7 @@ OcDescribeBootEntry (
   //
   // Custom entries need no special description.
   //
-  if (BootEntry->Type == OC_BOOT_CUSTOM) {
+  if (BootEntry->Type == OC_BOOT_EXTERNAL_OS || BootEntry->Type == OC_BOOT_EXTERNAL_TOOL) {
     return EFI_SUCCESS;
   }
 
@@ -194,14 +194,14 @@ internalFillCustomBootEntries (
       OcFreeBootEntries (Entries, EntryIndex + 1);
       return EFI_OUT_OF_RESOURCES;
     }
-    // Properly re-assign the boot type for custom entries according the pathname instead of using OC_BOOT_CUSTOM.
+    // Properly re-assign the boot type for custom entries according the pathname instead.
 
     if (StrStr(PathName, L"\\EFI\\Microsoft\\Boot") != NULL) {
       Entries[EntryIndex].Type = OC_BOOT_WINDOWS;
     } else if (StrStr(PathName, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
       Entries[EntryIndex].Type = OC_BOOT_APPLE_OS;
     } else {
-      Entries[EntryIndex].Type = OC_BOOT_CUSTOM;
+      Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_OS;
     }
     //
     // Check for possible Windows entry in custom entries if not yet found with auto scan when Windows boot
@@ -463,8 +463,11 @@ OcScanForBootEntries (
         OcFreeBootEntries (Entries, EntryIndex + 1);
         return EFI_OUT_OF_RESOURCES;
       }
-      
-      Entries[EntryIndex].Type = OC_BOOT_CUSTOM;
+      if (Context->CustomEntries[Index].Tool) {
+        Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_TOOL;
+      } else {
+        Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_OS;
+      }
       Entries[EntryIndex].IsAuxiliary = TRUE;
 
       UnicodeUefiSlashes (PathName);

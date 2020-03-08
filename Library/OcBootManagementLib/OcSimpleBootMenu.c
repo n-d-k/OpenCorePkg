@@ -765,7 +765,7 @@ CreateIcon (
     case OC_BOOT_APPLE_TIME_MACHINE:
       FilePath = L"EFI\\OC\\Icons\\os_clone.icns";
       break;
-    case OC_BOOT_CUSTOM:
+    case OC_BOOT_EXTERNAL_OS:
       if (StrStr (Name, L"Free") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_freebsd.icns";
       } else if (StrStr (Name, L"Linux") != NULL) {
@@ -776,14 +776,19 @@ CreateIcon (
         FilePath = L"EFI\\OC\\Icons\\os_ubuntu.icns";
       } else if (StrStr (Name, L"Fedora") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_fedora.icns";
-      } else if (StrStr (Name, L"Shell") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\tool_shell.icns";
-      } else if (StrStr (Name, L"Win") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_win.icns";
       } else if (StrStr (Name, L"10") != NULL) {
         FilePath = L"EFI\\OC\\Icons\\os_win10.icns";
+      } else if (StrStr (Name, L"Win") != NULL) {
+        FilePath = L"EFI\\OC\\Icons\\os_win.icns";
       } else {
         FilePath = L"EFI\\OC\\Icons\\os_custom.icns";
+      }
+      break;
+    case OC_BOOT_EXTERNAL_TOOL:
+      if (StrStr (Name, L"Shell") != NULL) {
+        FilePath = L"EFI\\OC\\Icons\\tool_shell.icns";
+      } else {
+          FilePath = L"EFI\\OC\\Icons\\os_custom.icns";
       }
       break;
     case OC_BOOT_APPLE_ANY:

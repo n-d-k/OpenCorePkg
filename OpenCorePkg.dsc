@@ -127,8 +127,10 @@
   OpenCorePkg/Application/Bootstrap/Bootstrap.inf
   OpenCorePkg/Application/ChipTune/ChipTune.inf
   OpenCorePkg/Application/CleanNvram/CleanNvram.inf
+  OpenCorePkg/Application/FwProtect/FwProtect.inf
   OpenCorePkg/Application/GopStop/GopStop.inf
   OpenCorePkg/Application/HdaCodecDump/HdaCodecDump.inf
+  OpenCorePkg/Application/KeyTester/KeyTester.inf
   OpenCorePkg/Application/PavpProvision/PavpProvision.inf
   OpenCorePkg/Application/VerifyMsrE2/VerifyMsrE2.inf
   OpenCorePkg/Debug/GdbSyms/GdbSyms.inf

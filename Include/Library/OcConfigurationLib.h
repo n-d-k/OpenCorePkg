@@ -482,14 +482,15 @@ typedef enum {
 /// Input is a set of options to support advanced input.
 ///
 #define OC_UEFI_INPUT_FIELDS(_, __) \
+  _(OC_STRING                   , KeySupportMode     ,     , OC_STRING_CONSTR ("", _, __)  , OC_DESTR (OC_STRING)) \
+  _(OC_STRING                   , PointerSupportMode ,     , OC_STRING_CONSTR ("", _, __)  , OC_DESTR (OC_STRING)) \
+  _(UINT32                      , TimerResolution    ,     , 0                             , ()) \
   _(UINT8                       , KeyForgetThreshold ,     , 0                             , ()) \
   _(UINT8                       , KeyMergeThreshold  ,     , 0                             , ()) \
   _(BOOLEAN                     , KeySupport         ,     , FALSE                         , ()) \
-  _(OC_STRING                   , KeySupportMode     ,     , OC_STRING_CONSTR ("", _, __)  , OC_DESTR (OC_STRING)) \
+  _(BOOLEAN                     , KeyFiltering       ,     , FALSE                         , ()) \
   _(BOOLEAN                     , KeySwap            ,     , FALSE                         , ()) \
-  _(BOOLEAN                     , PointerSupport     ,     , FALSE                         , ()) \
-  _(OC_STRING                   , PointerSupportMode ,     , OC_STRING_CONSTR ("", _, __)  , OC_DESTR (OC_STRING)) \
-  _(UINT32                      , TimerResolution    ,     , 0                             , ())
+  _(BOOLEAN                     , PointerSupport     ,     , FALSE                         , ())
   OC_DECLARE (OC_UEFI_INPUT)
 
 ///
@@ -499,7 +500,7 @@ typedef enum {
   _(OC_STRING                   , ConsoleMode                 ,     , OC_STRING_CONSTR ("", _, __), OC_DESTR (OC_STRING)) \
   _(OC_STRING                   , Resolution                  ,     , OC_STRING_CONSTR ("", _, __), OC_DESTR (OC_STRING)) \
   _(OC_STRING                   , TextRenderer                ,     , OC_STRING_CONSTR ("", _, __), OC_DESTR (OC_STRING)) \
-  _(INT32                       , DirectGopCacheMode          ,     , -1     , ()) \
+  _(OC_STRING                   , DirectGopCacheMode          ,     , OC_STRING_CONSTR ("", _, __), OC_DESTR (OC_STRING)) \
   _(BOOLEAN                     , IgnoreTextInGraphics        ,     , FALSE  , ()) \
   _(BOOLEAN                     , ClearScreenOnModeSwitch     ,     , FALSE  , ()) \
   _(BOOLEAN                     , ProvideConsoleGop           ,     , FALSE  , ()) \

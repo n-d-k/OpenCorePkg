@@ -1,5 +1,5 @@
 ## @file
-#  Verify MSR 0xE2 status on all the processors.
+#  Override FwRuntimeServices protection.
 #
 #  Copyright (c) 2018, vit9696. All rights reserved.<BR>
 #
@@ -14,8 +14,8 @@
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = VerifyMsrE2
-  FILE_GUID                      = 9031CCA3-EF7A-4D36-ADCA-F75802085D32
+  BASE_NAME                      = FwProtect
+  FILE_GUID                      = D123E297-3C1F-4D9E-8AD6-31748FA6522B
   MODULE_TYPE                    = UEFI_APPLICATION
   VERSION_STRING                 = 1.0
   ENTRY_POINT                    = UefiMain
@@ -32,20 +32,21 @@
 #
 
 [Sources]
-  VerifyMsrE2.c
-
-[Packages]
-  MdePkg/MdePkg.dec
-  MdeModulePkg/MdeModulePkg.dec
-  OpenCorePkg/OpenCorePkg.dec
-  UefiCpuPkg/UefiCpuPkg.dec
+  FwProtect.c
 
 [Protocols]
-  gEfiMpServiceProtocolGuid                 ## CONSUMES
+  gEfiShellParametersProtocolGuid
+  gOcFirmwareRuntimeProtocolGuid
+
+[Packages]
+  EfiPkg/EfiPkg.dec
+  MdePkg/MdePkg.dec
+  OpenCorePkg/OpenCorePkg.dec
 
 [LibraryClasses]
+  BaseLib
+  BaseMemoryLib
   OcConsoleControlEntryModeLib
   UefiApplicationEntryPoint
+  UefiBootServicesTableLib
   UefiLib
-  PcdLib
-  IoLib
