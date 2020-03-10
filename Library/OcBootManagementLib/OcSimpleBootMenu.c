@@ -1128,7 +1128,7 @@ InitScreen (
   }
   DEBUG ((DEBUG_INFO, "OCUI: Initialize Graphic Screen...%r\n", Status));
   
-  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 26 : 16;
+  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 20 : 16;
   if (mUiScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_icon_scaling.png"))) {
     mUiScale = 32;
     mIconPaddingSize = 16;
@@ -1326,7 +1326,7 @@ RenderText (
   
   TextLength = StrLen (Text);
   if (mFontImage == NULL) {
-    PrepareFont();
+    PrepareFont ();
   }
   
   BufferPtr = CompImage->Bitmap;
@@ -1679,11 +1679,9 @@ PrintTimeOutMessage (
 STATIC
 VOID
 PrintTextDescription (
-  IN UINTN        MaxStrWidth,
-  IN UINTN        Selected,
-  IN CHAR16       *Name,
-  IN BOOLEAN      Ext,
-  IN BOOLEAN      Dmg
+  IN UINTN         MaxStrWidth,
+  IN UINTN         Selected,
+  IN OC_BOOT_ENTRY *Entry
   )
 {
   NDK_UI_IMAGE    *TextImage;
@@ -1702,9 +1700,9 @@ PrintTextDescription (
   UnicodeSPrint (String, sizeof (String), L" %s%s%s%s%s ",
                  Code,
                  (mAllowSetDefault && mDefaultEntry == Selected) ? L".*" : L". ",
-                 Name,
-                 Ext ? L" (ext)" : L"",
-                 Dmg ? L" (dmg)" : L""
+                 Entry->Name,
+                 Entry->IsExternal ? L" (ext)" : L"",
+                 Entry->IsFolder ? L" (dmg)" : L""
                  );
 
   TextImage = CreateTextImage (String);
@@ -2364,17 +2362,11 @@ OcShowSimpleBootMenu (
   
   InitScreen ();
   ClearScreen (&mTransparentPixel);
+  PrepareFont ();
   
   while (TRUE) {
     FreeImage (mMenuImage);
     mMenuImage = NULL;
-    if (!TimeoutExpired) {
-      TimeoutExpired = PrintTimeOutMessage (TimeOutSeconds);
-      TimeOutSeconds = TimeoutExpired ? 10000 : TimeOutSeconds;
-    }
-    PrintDefaultBootMode (ShowAll);
-    PrintOcVersion (Context->TitleSuffix, ShowAll);
-    PrintDateTime (ShowAll);
     for (Index = 0, VisibleIndex = 0; Index < MIN (Count, OC_INPUT_MAX); ++Index) {
       if ((BootEntries[Index].Type == OC_BOOT_APPLE_RECOVERY && !ShowAll)
           || (BootEntries[Index].Type == OC_BOOT_APPLE_TIME_MACHINE && !ShowAll)
@@ -2405,14 +2397,26 @@ OcShowSimpleBootMenu (
     
     PrintTextDescription (MaxStrWidth,
                           Selected,
-                          BootEntries[DefaultEntry].Name,
-                          BootEntries[DefaultEntry].IsExternal,
-                          BootEntries[DefaultEntry].IsFolder
+                          &BootEntries[DefaultEntry]
                           );
     
     SwitchIconSelection (VisibleIndex, Selected, TRUE);
     mCurrentSelection = Selected;
     mMenuIconsCount = VisibleIndex;
+    
+    PrintDefaultBootMode (ShowAll);
+    PrintOcVersion (Context->TitleSuffix, ShowAll);
+    PrintDateTime (ShowAll);
+    if (!TimeoutExpired) {
+      TimeoutExpired = PrintTimeOutMessage (TimeOutSeconds);
+      TimeOutSeconds = TimeoutExpired ? 10000 : TimeOutSeconds;
+    }
+    
+    if (mPointer.SimplePointerProtocol == NULL) {
+      InitMouse ();
+    } else {
+      DrawPointer ();
+    }
     
     if (ShowAll && PlayedOnce) {
       OcPlayAudioFile (Context, OcVoiceOverAudioFileShowAuxiliary, FALSE);
@@ -2433,12 +2437,6 @@ OcShowSimpleBootMenu (
         OC_VOICE_OVER_SILENCE_NORMAL_MS
         );
       PlayedOnce = TRUE;
-    }
-    
-    if (mPointer.SimplePointerProtocol == NULL) {
-      InitMouse ();
-    } else {
-      DrawPointer ();
     }
 
     while (TRUE) {
@@ -2499,9 +2497,7 @@ OcShowSimpleBootMenu (
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
         PrintTextDescription (MaxStrWidth,
                               Selected,
-                              BootEntries[DefaultEntry].Name,
-                              BootEntries[DefaultEntry].IsExternal,
-                              BootEntries[DefaultEntry].IsFolder
+                              &BootEntries[DefaultEntry]
                               );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
@@ -2515,9 +2511,7 @@ OcShowSimpleBootMenu (
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
         PrintTextDescription (MaxStrWidth,
                               Selected,
-                              BootEntries[DefaultEntry].Name,
-                              BootEntries[DefaultEntry].IsExternal,
-                              BootEntries[DefaultEntry].IsFolder
+                              &BootEntries[DefaultEntry]
                               );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
@@ -2530,9 +2524,7 @@ OcShowSimpleBootMenu (
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
         PrintTextDescription (MaxStrWidth,
                               Selected,
-                              BootEntries[DefaultEntry].Name,
-                              BootEntries[DefaultEntry].IsExternal,
-                              BootEntries[DefaultEntry].IsFolder
+                              &BootEntries[DefaultEntry]
                               );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
