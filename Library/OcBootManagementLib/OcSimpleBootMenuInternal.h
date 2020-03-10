@@ -29,7 +29,6 @@
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
-#include <Library/UefiLib.h>
 #include <Library/OcPngLib.h>
 #include <Library/OcFileLib.h>
 #include <Library/OcStorageLib.h>
@@ -209,6 +208,15 @@ DrawImageArea (
   IN INTN              AreaHeight,
   IN INTN              ScreenXpos,
   IN INTN              ScreenYpos
+  );
+
+VOID
+PrintLabel (
+  IN OC_BOOT_ENTRY   *Entries,
+  IN UINTN           *VisibleList,
+  IN UINTN           VisibleIndex,
+  IN INTN            Xpos,
+  IN INTN            Ypos
   );
 
 #endif /* OcSimpleBootMenuInternal_h */
