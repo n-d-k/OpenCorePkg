@@ -66,7 +66,7 @@ mScreenHeight;
 
 STATIC
 INTN
-mFontWidth = 9;
+mFontWidth = 8;
 
 STATIC
 INTN
@@ -1121,7 +1121,7 @@ InitScreen (
   }
   DEBUG ((DEBUG_INFO, "OCUI: Initialize Graphic Screen...%r\n", Status));
   
-  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 28 : 16;
+  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 24 : 12;
   if (mUiScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_icon_scaling.png"))) {
     mUiScale = 32;
     mIconPaddingSize = 16;
@@ -1493,7 +1493,7 @@ PrintLabel (
   INTN            NewXpos;
   INTN            NewYpos;
   
-  Length = 144 / mFontWidth;
+  Length = (144 / mFontWidth) + 2;
   Rows = mMenuImage->Height / mIconSpaceSize;
   IconsPerRow = mMenuImage->Width / mIconSpaceSize;
   NewXpos = Xpos;
