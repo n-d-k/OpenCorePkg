@@ -122,6 +122,9 @@ NDK_UI_IMAGE *
 mLabelImage = NULL;
 
 BOOLEAN
+mPrintLabel = TRUE;
+
+BOOLEAN
 mSelectorUsed = TRUE;
 
 BOOLEAN
@@ -1032,6 +1035,10 @@ ClearScreen (
     mSelectionImage = DecodePNGFile (L"EFI\\OC\\Icons\\Selector.png");
   }
   
+  if (FileExist (L"EFI\\OC\\Icons\\No_label.png")) {
+    mPrintLabel = FALSE;
+  }
+  
   if (FileExist (L"EFI\\OC\\Icons\\Label.png")) {
     mLabelImage = DecodePNGFile (L"EFI\\OC\\Icons\\Label.png");
   } else {
@@ -1669,6 +1676,59 @@ PrintTimeOutMessage (
   return !(Timeout > 0);
 }
 
+STATIC
+VOID
+PrintTextDescription (
+  IN UINTN        MaxStrWidth,
+  IN UINTN        Selected,
+  IN CHAR16       *Name,
+  IN BOOLEAN      Ext,
+  IN BOOLEAN      Dmg
+  )
+{
+  NDK_UI_IMAGE    *TextImage;
+  NDK_UI_IMAGE    *NewImage;
+  CHAR16          Code[3];
+  CHAR16          String[MaxStrWidth + 1];
+  
+  if (mPrintLabel) {
+    return;
+  }
+  
+  Code[0] = 0x20;
+  Code[1] = OC_INPUT_STR[Selected];
+  Code[2] = '\0';
+
+  UnicodeSPrint (String, sizeof (String), L" %s%s%s%s%s ",
+                 Code,
+                 (mAllowSetDefault && mDefaultEntry == Selected) ? L".*" : L". ",
+                 Name,
+                 Ext ? L" (ext)" : L"",
+                 Dmg ? L" (dmg)" : L""
+                 );
+
+  TextImage = CreateTextImage (String);
+  if (TextImage == NULL) {
+    return;
+  }
+  NewImage = CreateFilledImage (mScreenWidth, TextImage->Height, TRUE, &mTransparentPixel);
+  if (NewImage == NULL) {
+    FreeImage (TextImage);
+    return;
+  }
+  ComposeImage (NewImage, TextImage, (NewImage->Width - TextImage->Width) / 2, 0);
+  if (TextImage != NULL) {
+    FreeImage (TextImage);
+  }
+
+  BltImageAlpha (NewImage,
+                 (mScreenWidth - NewImage->Width) / 2,
+                 (mScreenHeight / 2) + mIconSpaceSize,
+                 &mTransparentPixel,
+                 16
+                 );
+}
+
 /* Mouse Functions Begin */
 
 STATIC
@@ -2263,6 +2323,8 @@ OcShowSimpleBootMenu (
   UINTN                              VisibleIndex;
   BOOLEAN                            ShowAll;
   UINTN                              Selected;
+  UINTN                              MaxStrWidth;
+  UINTN                              StrWidth;
   APPLE_KEY_MAP_AGGREGATOR_PROTOCOL  *KeyMap;
   BOOLEAN                            SetDefault;
   BOOLEAN                            NewDefault;
@@ -2274,6 +2336,7 @@ OcShowSimpleBootMenu (
   
   Selected         = 0;
   VisibleIndex     = 0;
+  MaxStrWidth      = 0;
   TimeoutExpired   = FALSE;
   ShowAll          = !Context->HideAuxiliary;
   TimeOutSeconds   = Context->TimeoutSeconds;
@@ -2292,6 +2355,11 @@ OcShowSimpleBootMenu (
   if (KeyMap == NULL) {
     DEBUG ((DEBUG_ERROR, "OCSBM: Missing AppleKeyMapAggregator\n"));
     return EFI_UNSUPPORTED;
+  }
+  
+  for (Index = 0; Index < MIN (Count, OC_INPUT_MAX); ++Index) {
+    StrWidth = StrLen (BootEntries[Index].Name) + ((BootEntries[Index].IsFolder || BootEntries[Index].IsExternal) ? 11 : 5);
+    MaxStrWidth = MaxStrWidth > StrWidth ? MaxStrWidth : StrWidth;
   }
   
   InitScreen ();
@@ -2331,7 +2399,17 @@ OcShowSimpleBootMenu (
     
     ClearScreenArea (&mTransparentPixel, 0, (mScreenHeight / 2) - mIconSpaceSize, mScreenWidth, mIconSpaceSize * 3);
     BltMenuImage (mMenuImage, (mScreenWidth - mMenuImage->Width) / 2, (mScreenHeight / 2) - mIconSpaceSize);
-    PrintLabel (BootEntries, VisibleList, VisibleIndex, (mScreenWidth - mMenuImage->Width) / 2, (mScreenHeight / 2) - mIconSpaceSize);
+    if (mPrintLabel) {
+      PrintLabel (BootEntries, VisibleList, VisibleIndex, (mScreenWidth - mMenuImage->Width) / 2, (mScreenHeight / 2) - mIconSpaceSize);
+    }
+    
+    PrintTextDescription (MaxStrWidth,
+                          Selected,
+                          BootEntries[DefaultEntry].Name,
+                          BootEntries[DefaultEntry].IsExternal,
+                          BootEntries[DefaultEntry].IsFolder
+                          );
+    
     SwitchIconSelection (VisibleIndex, Selected, TRUE);
     mCurrentSelection = Selected;
     mMenuIconsCount = VisibleIndex;
@@ -2419,6 +2497,12 @@ OcShowSimpleBootMenu (
         Selected = Selected > 0 ? --Selected : VisibleIndex - 1;
         mCurrentSelection = Selected;
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
+        PrintTextDescription (MaxStrWidth,
+                              Selected,
+                              BootEntries[DefaultEntry].Name,
+                              BootEntries[DefaultEntry].IsExternal,
+                              BootEntries[DefaultEntry].IsFolder
+                              );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
         DrawPointer ();
@@ -2429,6 +2513,12 @@ OcShowSimpleBootMenu (
         Selected = Selected < (VisibleIndex - 1) ? ++Selected : 0;
         mCurrentSelection = Selected;
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
+        PrintTextDescription (MaxStrWidth,
+                              Selected,
+                              BootEntries[DefaultEntry].Name,
+                              BootEntries[DefaultEntry].IsExternal,
+                              BootEntries[DefaultEntry].IsFolder
+                              );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
         DrawPointer ();
@@ -2438,6 +2528,12 @@ OcShowSimpleBootMenu (
         Selected = mCurrentSelection;
         DefaultEntry = VisibleList[Selected];
         SwitchIconSelection (VisibleIndex, Selected, TRUE);
+        PrintTextDescription (MaxStrWidth,
+                              Selected,
+                              BootEntries[DefaultEntry].Name,
+                              BootEntries[DefaultEntry].IsExternal,
+                              BootEntries[DefaultEntry].IsFolder
+                              );
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
         DrawPointer ();
