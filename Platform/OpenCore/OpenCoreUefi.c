@@ -250,7 +250,7 @@ OcLoadDrivers (
   //
   // Driver connection list should be null-terminated.
   //
-  if (*DriversToConnectIterator != NULL) {
+  if (DriversToConnectIterator != NULL) {
     *DriversToConnectIterator = NULL;
   }
 }

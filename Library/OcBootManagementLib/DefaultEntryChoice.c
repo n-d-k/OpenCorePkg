@@ -662,6 +662,7 @@ InternalGetDefaultBootEntry (
                       &DeviceHandle
                       );
       if (EFI_ERROR (Status)) {
+        BootEntry = NULL;
         continue;
       }
 
