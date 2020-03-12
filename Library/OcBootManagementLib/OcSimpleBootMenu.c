@@ -1128,7 +1128,7 @@ InitScreen (
   }
   DEBUG ((DEBUG_INFO, "OCUI: Initialize Graphic Screen...%r\n", Status));
   
-  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 28 : 16;
+  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 32 : 16;
   if (mUiScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_icon_scaling.png"))) {
     mUiScale = 32;
     mIconPaddingSize = 16;
@@ -1416,7 +1416,7 @@ CreateTextImage (
   
   TmpImage = CreateImage (TextWidth, mFontHeight, TRUE);
   RawCopy (TmpImage->Bitmap,
-           Image->Bitmap + 1 * Image->Width + 1,
+           Image->Bitmap,
            TmpImage->Width,
            TmpImage->Height,
            TmpImage->Width,
