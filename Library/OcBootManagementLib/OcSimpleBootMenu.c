@@ -1408,7 +1408,7 @@ CreateTextImage (
     return NULL;
   }
   
-  Width = StrLen (String) * mFontWidth;
+  Width = (StrLen (String) * (INTN) CHAR_WIDTH);
   Image = CreateFilledImage (Width, mTextHeight, TRUE, &mTransparentPixel);
   if (Image != NULL) {
     TextWidth = RenderText (String, Image, 0, 0, 0xFFFF);
@@ -1501,7 +1501,7 @@ PrintLabel (
   INTN            NewXpos;
   INTN            NewYpos;
   
-  Length = (144 / mFontWidth);
+  Length = (144 / (INTN) CHAR_WIDTH) - 2;
   Rows = mMenuImage->Height / mIconSpaceSize;
   IconsPerRow = mMenuImage->Width / mIconSpaceSize;
   NewXpos = Xpos;
@@ -1587,8 +1587,8 @@ PrintDateTime (
     ClearScreenArea (&mTransparentPixel, 0, 0, mScreenWidth, mFontHeight * 5);
     UnicodeSPrint (DateStr, sizeof (DateStr), L" %02u/%02u/%04u", DateTime.Month, DateTime.Day, DateTime.Year);
     UnicodeSPrint (TimeStr, sizeof (TimeStr), L" %02u:%02u:%02u%s", Hour, DateTime.Minute, DateTime.Second, Str);
-    PrintTextGraphicXY (DateStr, mScreenWidth - ((StrLen(DateStr) * mFontWidth) + 15), 5, TRUE);
-    PrintTextGraphicXY (TimeStr, mScreenWidth - ((StrLen(DateStr) * mFontWidth) + 10), (mTextScale == 16) ? (mFontHeight + 5 + 2) : ((mFontHeight * 2) + 5 + 2), TRUE);
+    PrintTextGraphicXY (DateStr, mScreenWidth, 5, TRUE);
+    PrintTextGraphicXY (TimeStr, mScreenWidth, (mTextScale == 16) ? (mFontHeight + 5 + 2) : ((mFontHeight * 2) + 5 + 2), TRUE);
   } else {
     ClearScreenArea (&mTransparentPixel, 0, 0, mScreenWidth, mFontHeight * 5);
   }
@@ -1609,7 +1609,7 @@ PrintOcVersion (
   
   NewString = AsciiStrCopyToUnicode (String, 0);
   if (String != NULL && ShowAll) {
-    PrintTextGraphicXY (NewString, mScreenWidth - ((StrLen(NewString) * mFontWidth) + 10), mScreenHeight - (mFontHeight + 5), TRUE);
+    PrintTextGraphicXY (NewString, mScreenWidth, mScreenHeight, TRUE);
   } else {
     ClearScreenArea (&mTransparentPixel,
                        mScreenWidth - ((StrLen(NewString) * mFontWidth) * 2),
@@ -1629,7 +1629,7 @@ PrintDefaultBootMode (
   CHAR16             String[18];
   if (ShowAll) {
     UnicodeSPrint (String, sizeof (String), L"Auto default: %s", mAllowSetDefault ? L"Off" : L"On");
-    PrintTextGraphicXY (String, 10, mScreenHeight - (mFontHeight + 5), TRUE);
+    PrintTextGraphicXY (String, 8, mScreenHeight, TRUE);
   } else {
     ClearScreenArea (&mTransparentPixel,
                        0,
