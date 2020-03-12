@@ -1513,7 +1513,7 @@ PrintLabel (
       StrnCpyS (String, Length + 1, Entries[VisibleList[Index]].Name, Length);
       for (Needle = Length; Needle > 0; --Needle) {
         if (String[Needle] == 0x20) {
-          StrnCpyS (String, Needle + 2, Entries[VisibleList[Index]].Name, Needle + 1);
+          StrnCpyS (String, Needle + 1, Entries[VisibleList[Index]].Name, Needle);
           break;
         }
       }
