@@ -39,7 +39,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcMiscLib.h>
 #include <Library/OcSmcLib.h>
 #include <Library/OcOSInfoLib.h>
-#include <Library/OcUnicodeCollationEngLib.h>
+#include <Library/OcUnicodeCollationEngGenericLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
@@ -82,7 +82,7 @@ OcLoadDrivers (
   VOID                       *Driver;
   UINT32                     DriverSize;
   UINT32                     Index;
-  CHAR16                     DriverPath[64];
+  CHAR16                     DriverPath[OC_STORAGE_SAFE_PATH_MAX];
   EFI_HANDLE                 ImageHandle;
   EFI_HANDLE                 *DriversToConnectIterator;
   VOID                       *DriverBinding;
@@ -115,12 +115,21 @@ OcLoadDrivers (
       continue;
     }
 
-    UnicodeSPrint (
+    Status = OcUnicodeSafeSPrint (
       DriverPath,
       sizeof (DriverPath),
       OPEN_CORE_UEFI_DRIVER_PATH "%a",
       OC_BLOB_GET (Config->Uefi.Drivers.Values[Index])
       );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "OC: Driver %s%a doex not fit path!\n",
+        OPEN_CORE_UEFI_DRIVER_PATH,
+        OC_BLOB_GET (Config->Uefi.Drivers.Values[Index])
+        ));
+      continue;
+    }
 
     Driver = OcStorageReadFileUnicode (Storage, DriverPath, &DriverSize);
     if (Driver == NULL) {

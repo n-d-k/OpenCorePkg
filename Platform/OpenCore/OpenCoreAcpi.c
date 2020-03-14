@@ -37,7 +37,7 @@ OcAcpiAddTables (
   UINT32               Index;
   OC_ACPI_ADD_ENTRY    *Table;
   CONST CHAR8          *TablePath;
-  CHAR16               FullPath[128];
+  CHAR16               FullPath[OC_STORAGE_SAFE_PATH_MAX];
 
   for (Index = 0; Index < Config->Acpi.Add.Count; ++Index) {
     Table = Config->Acpi.Add.Values[Index];
@@ -48,7 +48,17 @@ OcAcpiAddTables (
       continue;
     }
 
-    UnicodeSPrint (FullPath, sizeof (FullPath), OPEN_CORE_ACPI_PATH "%a", TablePath);
+    Status = OcUnicodeSafeSPrint (FullPath, sizeof (FullPath), OPEN_CORE_ACPI_PATH "%a", TablePath);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_WARN,
+        "OC: Failed to fit ACPI path %s%a",
+        OPEN_CORE_ACPI_PATH,
+        TablePath
+        ));
+      continue;
+    }
+
     UnicodeUefiSlashes (FullPath);
 
     TableData = OcStorageReadFileUnicode (Storage, FullPath, &TableDataLength);
