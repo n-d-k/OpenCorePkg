@@ -79,7 +79,7 @@ package() {
   cp "${selfdir}/Docs/SampleFull.plist" tmp/Docs/ || exit 1
   cp "${selfdir}/Changelog.md" tmp/Docs/ || exit 1
   cp -r "${selfdir}/Docs/AcpiSamples/" tmp/Docs/AcpiSamples/ || exit 1
-  cp -r "${selfdir}/Icons/" tmp/EFI/OC/Icons/ || exit 1
+  cp -r "${selfdir}/Themes/2k/Light/Icons/" tmp/EFI/OC/Icons/ || exit 1
   cp -r "${selfdir}/Utilities/BootInstall" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/Utilities/CreateVault" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/Utilities/LogoutHook" tmp/Utilities/ || exit 1
