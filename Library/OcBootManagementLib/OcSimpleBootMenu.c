@@ -1135,7 +1135,7 @@ InitScreen (
     mIconSpaceSize = 288;
   } else if (mUiScale == 0 && mScreenHeight <= 800) {
     mUiScale = 8;
-    mTextScale = 8;
+    mTextScale = 16;
     mIconPaddingSize = 3;
     mIconSpaceSize = 70;
   } else {
