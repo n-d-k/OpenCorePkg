@@ -1408,7 +1408,7 @@ CreateTextImage (
     return NULL;
   }
   
-  Width = (StrLen (String) * (INTN) CHAR_WIDTH);
+  Width = ((StrLen (String) + 1) * (INTN) CHAR_WIDTH);
   Image = CreateFilledImage (Width, mTextHeight, TRUE, &mTransparentPixel);
   if (Image != NULL) {
     TextWidth = RenderText (String, Image, 0, 0, 0xFFFF);
