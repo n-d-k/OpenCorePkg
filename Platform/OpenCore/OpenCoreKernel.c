@@ -174,13 +174,14 @@ OcKernelLoadKextsAndReserve (
   IN OC_GLOBAL_CONFIG    *Config
   )
 {
+  EFI_STATUS           Status;
   UINT32               Index;
   UINT32               ReserveSize;
   CHAR8                *BundlePath;
   CHAR8                *Comment;
   CHAR8                *PlistPath;
   CHAR8                *ExecutablePath;
-  CHAR16               FullPath[128];
+  CHAR16               FullPath[OC_STORAGE_SAFE_PATH_MAX];
   OC_KERNEL_ADD_ENTRY  *Kext;
 
   ReserveSize = PRELINK_INFO_RESERVE_SIZE;
@@ -202,13 +203,24 @@ OcKernelLoadKextsAndReserve (
         continue;
       }
 
-      UnicodeSPrint (
+      Status = OcUnicodeSafeSPrint (
         FullPath,
         sizeof (FullPath),
         OPEN_CORE_KEXT_PATH "%a\\%a",
         BundlePath,
         PlistPath
         );
+      if (EFI_ERROR (Status)) {
+        DEBUG ((
+          DEBUG_WARN,
+          "OC: Failed to fit kext path %s%a\\%a",
+          OPEN_CORE_KEXT_PATH,
+          BundlePath,
+          PlistPath
+          ));
+        Kext->Enabled = FALSE;
+        continue;
+      }
 
       UnicodeUefiSlashes (FullPath);
 
@@ -232,13 +244,26 @@ OcKernelLoadKextsAndReserve (
 
       ExecutablePath = OC_BLOB_GET (&Kext->ExecutablePath);
       if (ExecutablePath[0] != '\0') {
-        UnicodeSPrint (
+        Status = OcUnicodeSafeSPrint (
           FullPath,
           sizeof (FullPath),
           OPEN_CORE_KEXT_PATH "%a\\%a",
           BundlePath,
           ExecutablePath
           );
+        if (EFI_ERROR (Status)) {
+          DEBUG ((
+            DEBUG_WARN,
+            "OC: Failed to fit kext path %s%a\\%a",
+            OPEN_CORE_KEXT_PATH,
+            BundlePath,
+            ExecutablePath
+            ));
+          Kext->Enabled = FALSE;
+          FreePool (Kext->PlistData);
+          Kext->PlistData = NULL;
+          continue;
+        }
 
         UnicodeUefiSlashes (FullPath);
 
@@ -257,6 +282,8 @@ OcKernelLoadKextsAndReserve (
             Comment
             ));
           Kext->Enabled = FALSE;
+          FreePool (Kext->PlistData);
+          Kext->PlistData = NULL;
           continue;
         }
       }
@@ -562,7 +589,7 @@ OcKernelProcessPrelinked (
   CHAR8                *ExecutablePath;
   CHAR8                *Comment;
   UINT32               Index;
-  CHAR8                FullPath[128];
+  CHAR8                FullPath[OC_STORAGE_SAFE_PATH_MAX];
   OC_KERNEL_ADD_ENTRY  *Kext;
   UINT32               MaxKernel;
   UINT32               MinKernel;
@@ -603,7 +630,12 @@ OcKernelProcessPrelinked (
           continue;
         }
 
-        AsciiSPrint (FullPath, sizeof (FullPath), "/Library/Extensions/%a", BundlePath);
+        Status = OcAsciiSafeSPrint (FullPath, sizeof (FullPath), "/Library/Extensions/%a", BundlePath);
+        if (EFI_ERROR (Status)) {
+          DEBUG ((DEBUG_WARN, "OC: Failed to fit kext path /Library/Extensions/%a", BundlePath));
+          continue;
+        }
+
         if (Kext->ImageData != NULL) {
           ExecutablePath = OC_BLOB_GET (&Kext->ExecutablePath);
         } else {
@@ -666,7 +698,7 @@ OcKernelFileOpen (
   EFI_TIME           ModificationTime;
   UINT32             DarwinVersion;
 
-  Status = This->Open (This, NewHandle, FileName, OpenMode, Attributes);
+  Status = SafeFileOpen (This, NewHandle, FileName, OpenMode, Attributes);
 
   DEBUG ((
     DEBUG_VERBOSE,

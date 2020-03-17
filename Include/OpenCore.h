@@ -30,7 +30,7 @@
   OpenCore version reported to log and NVRAM.
   OPEN_CORE_VERSION must follow X.Y.Z format, where X.Y.Z are single digits.
 **/
-#define OPEN_CORE_VERSION          "0.5.5"
+#define OPEN_CORE_VERSION          "0.5.7"
 
 /**
   OpenCore build type reported to log and NVRAM.
@@ -47,17 +47,6 @@
 
 #define OPEN_CORE_IMAGE_PATH       L"EFI\\OC\\OpenCore.efi"
 
-/**
-  Multiple boards, namely ASUS P8H61-M and P8H61-M LX2 will not
-  open directories with trailing slash. It is irrelevant whether
-  front slash is present for them.
-
-  This means L"EFI\\OC\\" and L"\\EFI\\OC\\" will both fail to open,
-  while L"EFI\\OC" and L"\\EFI\\OC" will open fine.
-
-  We do not open any directories except root path and dmg, so the
-  hack lives here.
-**/
 #define OPEN_CORE_ROOT_PATH        L"EFI\\OC"
 
 #define OPEN_CORE_CONFIG_PATH      L"config.plist"
@@ -73,6 +62,8 @@
 #define OPEN_CORE_KEXT_PATH        L"Kexts\\"
 
 #define OPEN_CORE_TOOL_PATH        L"Tools\\"
+
+#define OPEN_CORE_AUDIO_PATH       L"Resources\\Audio\\"
 
 #define OPEN_CORE_NVRAM_ATTR       (EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS)
 
@@ -175,16 +166,47 @@ OcLoadUefiSupport (
   );
 
 /**
-  Decide whether console controller reconnection is required
-  upon changing screen resolution.
+  Load UEFI input compatibility support.
 
-  @param[in]  Config    OpenCore configuration.
-
-  @retval TRUE when required.
+  @param[out] Config    OpenCore configuration.
 **/
-BOOLEAN
-OcShouldReconnectConsoleOnResolutionChange (
+VOID
+OcLoadUefiInputSupport (
   IN OC_GLOBAL_CONFIG  *Config
+  );
+
+/**
+  Load UEFI output compatibility support.
+
+  @param[out] Config    OpenCore configuration.
+**/
+VOID
+OcLoadUefiOutputSupport (
+  IN OC_GLOBAL_CONFIG  *Config
+  );
+
+/**
+  Load UEFI audio compatibility support.
+
+  @param[in]  Storage   OpenCore storage.
+  @param[out] Config    OpenCore configuration.
+**/
+VOID
+OcLoadUefiAudioSupport (
+  IN OC_STORAGE_CONTEXT  *Storage,
+  IN OC_GLOBAL_CONFIG    *Config
+  );
+
+/**
+  Schedule Exit Boot Services event in TPL_APPLICATION mode.
+
+  @param[in]  Handler   Handler function to invoke.
+  @param[in]  Context   Handler function context.
+**/
+VOID
+OcScheduleExitBootServices (
+  IN EFI_EVENT_NOTIFY   Handler,
+  IN VOID               *Context
   );
 
 /**
@@ -195,18 +217,6 @@ OcShouldReconnectConsoleOnResolutionChange (
 CONST CHAR8 *
 OcMiscGetVersionString (
   VOID
-  );
-
-/**
-  Get ballooning handler for memory allocation protections.
-
-  @param[in]  Config    OpenCore configuration.
-
-  @retval Handler address or NULL.
-**/
-OC_BALLOON_ALLOC
-OcGetBallooningHandler (
-  IN  OC_GLOBAL_CONFIG  *Config
   );
 
 /**

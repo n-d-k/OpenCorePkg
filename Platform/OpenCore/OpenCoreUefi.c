@@ -18,18 +18,20 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Guid/GlobalVariable.h>
 
 #include <Library/BaseLib.h>
-#include <Library/DebugLib.h>
+#include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/OcAppleBootCompatLib.h>
 #include <Library/OcAppleBootPolicyLib.h>
 #include <Library/OcAppleEventLib.h>
 #include <Library/OcAppleImageConversionLib.h>
+#include <Library/OcAudioLib.h>
 #include <Library/OcInputLib.h>
 #include <Library/OcAppleKeyMapLib.h>
 #include <Library/OcAppleUserInterfaceThemeLib.h>
 #include <Library/OcConsoleLib.h>
 #include <Library/OcCpuLib.h>
 #include <Library/OcDataHubLib.h>
+#include <Library/OcDebugLogLib.h>
 #include <Library/OcDevicePropertyLib.h>
 #include <Library/OcDriverConnectionLib.h>
 #include <Library/OcFirmwareVolumeLib.h>
@@ -37,7 +39,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcMiscLib.h>
 #include <Library/OcSmcLib.h>
 #include <Library/OcOSInfoLib.h>
-#include <Library/OcUnicodeCollationEngLib.h>
+#include <Library/OcUnicodeCollationEngGenericLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
@@ -46,7 +48,27 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Protocol/DevicePath.h>
 #include <Protocol/GraphicsOutput.h>
 
-STATIC EFI_EVENT mOcExitBootServicesEvent;
+#define OC_EXIT_BOOT_SERVICES_HANDLER_MAX 5
+
+STATIC EFI_EVENT_NOTIFY mOcExitBootServicesHandlers[OC_EXIT_BOOT_SERVICES_HANDLER_MAX+1];
+STATIC VOID             *mOcExitBootServicesContexts[OC_EXIT_BOOT_SERVICES_HANDLER_MAX];
+STATIC UINTN            mOcExitBootServicesIndex;
+
+VOID
+OcScheduleExitBootServices (
+  IN EFI_EVENT_NOTIFY   Handler,
+  IN VOID               *Context
+  )
+{
+  if (mOcExitBootServicesIndex + 1 == OC_EXIT_BOOT_SERVICES_HANDLER_MAX) {
+    ASSERT (FALSE);
+    return;
+  }
+
+  mOcExitBootServicesHandlers[mOcExitBootServicesIndex] = Handler;
+  mOcExitBootServicesContexts[mOcExitBootServicesIndex] = Context;
+  ++mOcExitBootServicesIndex;
+}
 
 STATIC
 VOID
@@ -60,7 +82,7 @@ OcLoadDrivers (
   VOID                       *Driver;
   UINT32                     DriverSize;
   UINT32                     Index;
-  CHAR16                     DriverPath[64];
+  CHAR16                     DriverPath[OC_STORAGE_SAFE_PATH_MAX];
   EFI_HANDLE                 ImageHandle;
   EFI_HANDLE                 *DriversToConnectIterator;
   VOID                       *DriverBinding;
@@ -86,12 +108,28 @@ OcLoadDrivers (
       Index
       ));
 
-    UnicodeSPrint (
+    //
+    // Skip drivers marked as comments.
+    //
+    if (OC_BLOB_GET (Config->Uefi.Drivers.Values[Index])[0] == '#') {
+      continue;
+    }
+
+    Status = OcUnicodeSafeSPrint (
       DriverPath,
       sizeof (DriverPath),
       OPEN_CORE_UEFI_DRIVER_PATH "%a",
       OC_BLOB_GET (Config->Uefi.Drivers.Values[Index])
       );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_ERROR,
+        "OC: Driver %s%a doex not fit path!\n",
+        OPEN_CORE_UEFI_DRIVER_PATH,
+        OC_BLOB_GET (Config->Uefi.Drivers.Values[Index])
+        ));
+      continue;
+    }
 
     Driver = OcStorageReadFileUnicode (Storage, DriverPath, &DriverSize);
     if (Driver == NULL) {
@@ -221,7 +259,7 @@ OcLoadDrivers (
   //
   // Driver connection list should be null-terminated.
   //
-  if (*DriversToConnectIterator != NULL) {
+  if (DriversToConnectIterator != NULL) {
     *DriversToConnectIterator = NULL;
   }
 }
@@ -239,9 +277,17 @@ OcExitBootServicesHandler (
 
   Config = (OC_GLOBAL_CONFIG *) Context;
 
+  //
+  // Printing from ExitBootServices is dangerous, as it may cause
+  // memory reallocation, which can make ExitBootServices fail.
+  // Only do that on error, which is not expected.
+  //
+
   if (Config->Uefi.Quirks.ReleaseUsbOwnership) {
     Status = ReleaseUsbOwnership ();
-    DEBUG ((DEBUG_INFO, "OC: ReleaseUsbOwnership status - %r\n", Status));
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "OC: ReleaseUsbOwnership - %r\n", Status));
+    }
   }
 
   //
@@ -256,32 +302,6 @@ OcExitBootServicesHandler (
   if (Config->Uefi.Quirks.ExitBootServicesDelay > 0) {
     gBS->Stall (Config->Uefi.Quirks.ExitBootServicesDelay);
   }
-
-  if (Config->Uefi.Input.TimerResolution != 0) {
-    Status = OcAppleGenericInputTimerQuirkExit ();
-    DEBUG ((
-      DEBUG_INFO,
-      "OC: OcAppleGenericInputTimerQuirkExit status - %r\n",
-      Status
-      ));
-  }
-
-  if (Config->Uefi.Input.PointerSupport) {
-    Status = OcAppleGenericInputPointerExit ();
-    DEBUG ((DEBUG_INFO,
-      "OC: OcAppleGenericInputPointerExit status - %r\n",
-      Status
-      ));
-  }
-
-  if (Config->Uefi.Input.KeySupport) {
-    Status = OcAppleGenericInputKeycodeExit ();
-    DEBUG ((
-      DEBUG_INFO,
-      "OC: OcAppleGenericInputKeycodeExit status - %r\n",
-      Status
-      ));
-  }
 }
 
 STATIC
@@ -290,12 +310,12 @@ OcReinstallProtocols (
   IN OC_GLOBAL_CONFIG    *Config
   )
 {
-  if (OcAppleBootPolicyInstallProtocol (Config->Uefi.Protocols.AppleBootPolicy) == NULL) {
-    DEBUG ((DEBUG_ERROR, "OC: Failed to install boot policy protocol\n"));
+  if (OcAudioInstallProtocols (Config->Uefi.Protocols.AppleAudio) == NULL) {
+    DEBUG ((DEBUG_INFO, "OC: Disabling audio in favour of firmware implementation\n"));
   }
 
-  if (OcConsoleControlInstallProtocol (Config->Uefi.Protocols.ConsoleControl) == NULL) {
-    DEBUG ((DEBUG_ERROR, "OC: Failed to install console control protocol\n"));
+  if (OcAppleBootPolicyInstallProtocol (Config->Uefi.Protocols.AppleBootPolicy) == NULL) {
+    DEBUG ((DEBUG_ERROR, "OC: Failed to install boot policy protocol\n"));
   }
 
   if (OcDataHubInstallProtocol (Config->Uefi.Protocols.DataHub) == NULL) {
@@ -308,6 +328,10 @@ OcReinstallProtocols (
 
   if (OcAppleImageConversionInstallProtocol (Config->Uefi.Protocols.AppleImageConversion) == NULL) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to install image conversion protocol\n"));
+  }
+
+  if (OcAppleDebugLogInstallProtocol (Config->Uefi.Protocols.AppleDebugLog) == NULL) {
+    DEBUG ((DEBUG_ERROR, "OC: Failed to install debug log protocol\n"));
   }
 
   if (OcSmcIoInstallProtocol (Config->Uefi.Protocols.AppleSmcIo, Config->Misc.Security.AuthRestart) == NULL) {
@@ -343,104 +367,6 @@ OcReinstallProtocols (
   }
 }
 
-STATIC
-BOOLEAN
-OcLoadUefiInputSupport (
-  IN OC_GLOBAL_CONFIG  *Config
-  )
-{
-  BOOLEAN               ExitBs;
-  EFI_STATUS            Status;
-  UINT32                TimerResolution;
-  CONST CHAR8           *PointerSupportStr;
-  OC_INPUT_POINTER_MODE PointerMode;
-  OC_INPUT_KEY_MODE     KeyMode;
-  CONST CHAR8           *KeySupportStr;
-
-  ExitBs = FALSE;
-
-  TimerResolution = Config->Uefi.Input.TimerResolution;
-  if (TimerResolution != 0) {
-    Status = OcAppleGenericInputTimerQuirkInit (TimerResolution);
-    if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "OC: Failed to initialize timer quirk\n"));
-    } else {
-      ExitBs = TRUE;
-    }
-  }
-
-  if (Config->Uefi.Input.PointerSupport) {
-    PointerSupportStr = OC_BLOB_GET (&Config->Uefi.Input.PointerSupportMode);
-    PointerMode = OcInputPointerModeMax;
-    if (AsciiStrCmp (PointerSupportStr, "ASUS") == 0) {
-      PointerMode = OcInputPointerModeAsus;
-    } else {
-      DEBUG ((DEBUG_WARN, "OC: Invalid input pointer mode %a\n", PointerSupportStr));
-    }
-
-    if (PointerMode != OcInputPointerModeMax) {
-      Status = OcAppleGenericInputPointerInit (PointerMode);
-      if (EFI_ERROR (Status)) {
-        DEBUG ((DEBUG_ERROR, "OC: Failed to initialize pointer\n"));
-      } else {
-        ExitBs = TRUE;
-      }
-    }
-  }
-
-  if (Config->Uefi.Input.KeySupport) {
-    KeySupportStr = OC_BLOB_GET (&Config->Uefi.Input.KeySupportMode);
-    KeyMode = OcInputKeyModeMax;
-    if (AsciiStrCmp (KeySupportStr, "Auto") == 0) {
-      KeyMode = OcInputKeyModeAuto;
-    } else if (AsciiStrCmp (KeySupportStr, "V1") == 0) {
-      KeyMode = OcInputKeyModeV1;
-    } else if (AsciiStrCmp (KeySupportStr, "V2") == 0) {
-      KeyMode = OcInputKeyModeV2;
-    } else if (AsciiStrCmp (KeySupportStr, "AMI") == 0) {
-      KeyMode = OcInputKeyModeAmi;
-    } else {
-      DEBUG ((DEBUG_WARN, "OC: Invalid input key mode %a\n", KeySupportStr));
-    }
-
-    if (KeyMode != OcInputKeyModeMax) {
-      Status = OcAppleGenericInputKeycodeInit (
-                 KeyMode,
-                 Config->Uefi.Input.KeyForgetThreshold,
-                 Config->Uefi.Input.KeyMergeThreshold,
-                 Config->Uefi.Input.KeySwap
-                 );
-      if (EFI_ERROR (Status)) {
-        DEBUG ((DEBUG_ERROR, "OC: Failed to initialize keycode\n"));
-      } else {
-        ExitBs = TRUE;
-      }
-    }
-  }
-
-  return ExitBs;
-}
-
-BOOLEAN
-OcShouldReconnectConsoleOnResolutionChange (
-  IN OC_GLOBAL_CONFIG  *Config
-  )
-{
-  return Config->Uefi.Quirks.ReconnectOnResChange;
-}
-
-OC_BALLOON_ALLOC
-OcGetBallooningHandler (
-  IN  OC_GLOBAL_CONFIG  *Config
-  )
-{
-  if (Config->Uefi.Quirks.AvoidHighAlloc) {
-    return OcHandleKernelProtectionZone;
-  }
-
-  return NULL;
-}
-
 VOID
 OcLoadBooterUefiSupport (
   IN OC_GLOBAL_CONFIG  *Config
@@ -456,6 +382,7 @@ OcLoadBooterUefiSupport (
   AbcSettings.DevirtualiseMmio       = Config->Booter.Quirks.DevirtualiseMmio;
   AbcSettings.DisableSingleUser      = Config->Booter.Quirks.DisableSingleUser;
   AbcSettings.DisableVariableWrite   = Config->Booter.Quirks.DisableVariableWrite;
+  AbcSettings.ProtectSecureBoot      = Config->Booter.Quirks.ProtectSecureBoot;
   AbcSettings.DiscardHibernateMap    = Config->Booter.Quirks.DiscardHibernateMap;
   AbcSettings.EnableSafeModeSlide    = Config->Booter.Quirks.EnableSafeModeSlide;
   AbcSettings.EnableWriteUnprotector = Config->Booter.Quirks.EnableWriteUnprotector;
@@ -465,6 +392,7 @@ OcLoadBooterUefiSupport (
   AbcSettings.SetupVirtualMap        = Config->Booter.Quirks.SetupVirtualMap;
   AbcSettings.ShrinkMemoryMap        = Config->Booter.Quirks.ShrinkMemoryMap;
   AbcSettings.SignalAppleOS          = Config->Booter.Quirks.SignalAppleOS;
+  AbcSettings.ProtectUefiServices    = Config->Booter.Quirks.ProtectUefiServices;
 
   if (AbcSettings.DevirtualiseMmio && Config->Booter.MmioWhitelist.Count > 0) {
     AbcSettings.MmioWhitelist = AllocatePool (
@@ -487,8 +415,10 @@ OcLoadBooterUefiSupport (
         (UINT32) Config->Booter.MmioWhitelist.Count
         ));
     }
-
   }
+
+  AbcSettings.ExitBootServicesHandlers = mOcExitBootServicesHandlers;
+  AbcSettings.ExitBootServicesHandlerContexts = mOcExitBootServicesContexts;
 
   OcAbcInitialize (&AbcSettings);
 }
@@ -507,11 +437,12 @@ OcLoadUefiSupport (
   UINT16      *BootOrder;
   UINTN       BootOrderSize;
   BOOLEAN     BootOrderChanged;
-  BOOLEAN     AgiExitBs;
+  EFI_EVENT   Event;
 
   OcReinstallProtocols (Config);
 
-  AgiExitBs = OcLoadUefiInputSupport (Config);
+  OcLoadUefiInputSupport (Config);
+
   //
   // Setup Apple bootloader specific UEFI features.
   //
@@ -519,17 +450,6 @@ OcLoadUefiSupport (
   if (Config->Uefi.Quirks.IgnoreInvalidFlexRatio) {
     OcCpuCorrectFlexRatio (CpuInfo);
   }
-
-  if (Config->Uefi.Quirks.ProvideConsoleGop) {
-    OcProvideConsoleGop ();
-  }
-
-  OcConsoleControlConfigure (
-    Config->Uefi.Quirks.IgnoreTextInGraphics,
-    Config->Uefi.Quirks.SanitiseClearScreen,
-    Config->Uefi.Quirks.ClearScreenOnModeSwitch,
-    Config->Uefi.Quirks.ReplaceTabWithSpace
-    );
 
   //
   // Inform platform support whether we want Boot#### routing or not.
@@ -596,18 +516,6 @@ OcLoadUefiSupport (
     }
   }
 
-  if (Config->Uefi.Quirks.ReleaseUsbOwnership
-    || Config->Uefi.Quirks.ExitBootServicesDelay > 0
-    || AgiExitBs) {
-    gBS->CreateEvent (
-      EVT_SIGNAL_EXIT_BOOT_SERVICES,
-      TPL_NOTIFY,
-      OcExitBootServicesHandler,
-      Config,
-      &mOcExitBootServicesEvent
-      );
-  }
-
   if (Config->Uefi.Quirks.UnblockFsConnect) {
     OcUnblockUnmountedPartitions ();
   }
@@ -628,4 +536,16 @@ OcLoadUefiSupport (
   } else {
     OcLoadDrivers (Storage, Config, NULL);
   }
+
+  OcLoadUefiOutputSupport (Config);
+
+  OcLoadUefiAudioSupport (Storage, Config);
+
+  gBS->CreateEvent (
+    EVT_SIGNAL_EXIT_BOOT_SERVICES,
+    TPL_NOTIFY,
+    OcExitBootServicesHandler,
+    Config,
+    &Event
+    );
 }

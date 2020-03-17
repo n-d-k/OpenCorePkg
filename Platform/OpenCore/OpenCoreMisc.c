@@ -23,6 +23,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcAppleBootPolicyLib.h>
 #include <Library/OcConsoleLib.h>
 #include <Library/OcDebugLogLib.h>
+#include <Library/OcStringLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
@@ -63,7 +64,7 @@ OcStoreLoadPath (
 
   DEBUG ((
     EFI_ERROR (Status) ? DEBUG_WARN : DEBUG_INFO,
-    "OC: Setting NVRAM %g:%a = %a - %r\n",
+    "OC: Setting NVRAM %g:%s = %a - %r\n",
     &gOcVendorVariableGuid,
     OC_LOG_VARIABLE_PATH,
     OutPath,
@@ -79,18 +80,30 @@ OcToolLoadEntry (
   IN  OC_BOOT_ENTRY               *ChosenEntry,
   OUT VOID                        **Data,
   OUT UINT32                      *DataSize,
-  OUT EFI_DEVICE_PATH_PROTOCOL    **DevicePath OPTIONAL
+  OUT EFI_DEVICE_PATH_PROTOCOL    **DevicePath         OPTIONAL,
+  OUT EFI_HANDLE                  *ParentDeviceHandle  OPTIONAL,
+  OUT EFI_DEVICE_PATH_PROTOCOL    **ParentFilePath     OPTIONAL
   )
 {
-  CHAR16              ToolPath[64];
+  EFI_STATUS          Status;
+  CHAR16              ToolPath[OC_STORAGE_SAFE_PATH_MAX];
   OC_STORAGE_CONTEXT  *Storage;
 
-  UnicodeSPrint (
+  Status = OcUnicodeSafeSPrint (
     ToolPath,
     sizeof (ToolPath),
     OPEN_CORE_TOOL_PATH "%s",
     ChosenEntry->PathName
     );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "OC: Tool %s%s does not fit path!\n",
+      OPEN_CORE_TOOL_PATH,
+      ChosenEntry->PathName
+      ));
+    return EFI_NOT_FOUND;
+  }
 
   Storage = (OC_STORAGE_CONTEXT *) Context;
 
@@ -112,7 +125,105 @@ OcToolLoadEntry (
     *DevicePath = Storage->DummyDevicePath;
   }
 
+  if (ParentDeviceHandle != NULL) {
+    *ParentDeviceHandle = Storage->StorageHandle;
+  }
+
+  if (ParentFilePath != NULL) {
+    *ParentFilePath = Storage->DummyFilePath;
+  }
+
   return EFI_SUCCESS;
+}
+
+STATIC
+EFI_STATUS
+EFIAPI
+OcToolDescribeEntry (
+  IN  VOID                        *Context,
+  IN  OC_BOOT_ENTRY               *ChosenEntry,
+  IN  UINT8                       LabelScale           OPTIONAL,
+  OUT VOID                        **IconData           OPTIONAL,
+  OUT UINT32                      *IconDataSize        OPTIONAL,
+  OUT VOID                        **LabelData          OPTIONAL,
+  OUT UINT32                      *LabelDataSize       OPTIONAL
+  )
+{
+  EFI_STATUS          Status;
+  CHAR16              DescPath[OC_STORAGE_SAFE_PATH_MAX];
+  OC_STORAGE_CONTEXT  *Storage;
+  BOOLEAN             HasIcon;
+  BOOLEAN             HasLabel;
+
+  Storage  = (OC_STORAGE_CONTEXT *) Context;
+  HasIcon  = FALSE;
+  HasLabel = FALSE;
+
+  if (IconData != NULL && IconDataSize != NULL) {
+    *IconData     = NULL;
+    *IconDataSize = 0;
+
+    Status = OcUnicodeSafeSPrint (
+      DescPath,
+      sizeof (DescPath),
+      OPEN_CORE_TOOL_PATH "%s.icns",
+      ChosenEntry->PathName
+      );
+    if (!EFI_ERROR (Status)) {
+      if (OcStorageExistsFileUnicode (Context, DescPath)) {
+        *IconData = OcStorageReadFileUnicode (
+          Storage,
+          DescPath,
+          IconDataSize
+          );
+        HasIcon = *IconData != NULL;
+      }
+    } else {
+      DEBUG ((
+        DEBUG_INFO,
+        "OC: Tool label %s%s.icns does not fit path!\n",
+        OPEN_CORE_TOOL_PATH,
+        DescPath
+        ));
+    }
+  }
+
+  if (LabelData != NULL && LabelDataSize != NULL) {
+    *LabelData     = NULL;
+    *LabelDataSize = 0;
+
+    Status = OcUnicodeSafeSPrint (
+      DescPath,
+      sizeof (DescPath),
+      OPEN_CORE_TOOL_PATH "%s.lbl%a",
+      ChosenEntry->PathName,
+      LabelScale == 2 ? "2x" : ""
+      );
+    if (!EFI_ERROR (Status)) {
+      if (OcStorageExistsFileUnicode (Context, DescPath)) {
+        *LabelData = OcStorageReadFileUnicode (
+          Storage,
+          DescPath,
+          LabelDataSize
+          );
+        HasLabel = *LabelData != NULL;
+      }
+    } else {
+      DEBUG ((
+        DEBUG_INFO,
+        "OC: Tool label %s%s.lbl%a does not fit path!\n",
+        OPEN_CORE_TOOL_PATH,
+        DescPath,
+        LabelScale == 2 ? "2x" : ""
+        ));
+    }
+  }
+
+  if (HasIcon || HasLabel) {
+    return EFI_SUCCESS;
+  }
+
+  return EFI_NOT_FOUND;
 }
 
 CONST CHAR8 *
@@ -194,6 +305,8 @@ OcMiscEarlyInit (
   CHAR8                     *ConfigData;
   UINT32                    ConfigDataSize;
   EFI_TIME                  BootTime;
+  CONST CHAR8               *AsciiVault;
+  OCS_VAULT_MODE            Vault;
 
   ConfigData = OcStorageReadFileUnicode (
     Storage,
@@ -218,16 +331,29 @@ OcMiscEarlyInit (
     return EFI_UNSUPPORTED; ///< Should be unreachable.
   }
 
+  AsciiVault = OC_BLOB_GET (&Config->Misc.Security.Vault);
+  if (AsciiStrCmp (AsciiVault, "Secure") == 0) {
+    Vault = OcsVaultSecure;
+  } else if (AsciiStrCmp (AsciiVault, "Optional") == 0) {
+    Vault = OcsVaultOptional;
+  } else if (AsciiStrCmp (AsciiVault, "Basic") == 0) {
+    Vault = OcsVaultBasic;
+  } else {
+    DEBUG ((DEBUG_ERROR, "OC: Invalid Vault mode: %a\n", AsciiVault));
+    CpuDeadLoop ();
+    return EFI_UNSUPPORTED; ///< Should be unreachable.
+  }
+
   //
   // Sanity check that the configuration is adequate.
   //
-  if (!Storage->HasVault && Config->Misc.Security.RequireVault) {
+  if (!Storage->HasVault && Vault >= OcsVaultBasic) {
     DEBUG ((DEBUG_ERROR, "OC: Configuration requires vault but no vault provided!\n"));
     CpuDeadLoop ();
     return EFI_SECURITY_VIOLATION; ///< Should be unreachable.
   }
 
-  if (VaultKey == NULL && Config->Misc.Security.RequireSignature) {
+  if (VaultKey == NULL && Vault >= OcsVaultSecure) {
     DEBUG ((DEBUG_ERROR, "OC: Configuration requires signed vault but no public key provided!\n"));
     CpuDeadLoop ();
     return EFI_SECURITY_VIOLATION; ///< Should be unreachable.
@@ -251,11 +377,11 @@ OcMiscEarlyInit (
 
   DEBUG ((
     DEBUG_INFO,
-    "OC: OpenCore is now loading (Vault: %d/%d, Sign %d/%d)...\n",
+    "OC: OpenCore %a is loading in %a mode (%d/%d)...\n",
+    OcMiscGetVersionString (),
+    AsciiVault,
     Storage->HasVault,
-    Config->Misc.Security.RequireVault,
-    VaultKey != NULL,
-    Config->Misc.Security.RequireSignature
+    VaultKey != NULL
     ));
 
   Status = gRT->GetTime (&BootTime, NULL);
@@ -314,10 +440,6 @@ OcMiscLateInit (
     }
   }
 
-  if (Config->Misc.Boot.BuiltinTextRenderer) {
-    OcInstallCustomConOut ();
-  }
-
   HibernateMode = OC_BLOB_GET (&Config->Misc.Boot.HibernateMode);
 
   if (AsciiStrCmp (HibernateMode, "None") == 0) {
@@ -337,7 +459,8 @@ OcMiscLateInit (
 
   HibernateStatus = OcActivateHibernateWake (HibernateMask);
   DEBUG ((DEBUG_INFO, "OC: Hibernation detection status is %r\n", HibernateStatus));
-  (VOID) HibernateStatus;
+
+  OcAppleDebugLogConfigure (Config->Misc.Debug.AppleDebug);
 
   return Status;
 }
@@ -355,6 +478,7 @@ OcMiscBoot (
   EFI_STATUS             Status;
   OC_PICKER_CONTEXT      *Context;
   OC_PICKER_CMD          PickerCommand;
+  OC_PICKER_MODE         PickerMode;
   UINTN                  ContextSize;
   UINT32                 Index;
   UINT32                 EntryIndex;
@@ -362,11 +486,24 @@ OcMiscBoot (
   UINTN                  BlessOverrideSize;
   CHAR16                 **BlessOverride;
   INTN                   HotkeyNumber;
+  CONST CHAR8            *AsciiPicker;
 
+  AsciiPicker = OC_BLOB_GET (&Config->Misc.Boot.PickerMode);
+
+  if (AsciiStrCmp (AsciiPicker, "Builtin") == 0) {
+    PickerMode = OcPickerModeBuiltin;
+  } else if (AsciiStrCmp (AsciiPicker, "External") == 0) {
+    PickerMode = OcPickerModeExternal;
+  } else if (AsciiStrCmp (AsciiPicker, "Apple") == 0) {
+    PickerMode = OcPickerModeApple;
+  } else {
+    DEBUG ((DEBUG_WARN, "OC: Unknown PickirMode: %a, using builtin\n", AsciiPicker));
+    PickerMode = OcPickerModeBuiltin;
+  }
   //
   // Do not use our boot picker unless asked.
   //
-  if (!Config->Misc.Boot.UsePicker) {
+  if (PickerMode == OcPickerModeExternal) {
     DEBUG ((DEBUG_INFO, "OC: Handing off to external boot controller\n"));
 
     Status = gBS->LocateProtocol (
@@ -374,19 +511,19 @@ OcMiscBoot (
       NULL,
       (VOID **) &Interface
       );
-    if (EFI_ERROR (Status)) {
+    if (!EFI_ERROR (Status)) {
+      if (Interface->Revision != OC_INTERFACE_REVISION) {
+        DEBUG ((
+          DEBUG_INFO,
+          "OC: Incompatible external GUI protocol - %u vs %u\n",
+          Interface->Revision,
+          OC_INTERFACE_REVISION
+          ));
+        Interface = NULL;
+      }
+    } else {
       DEBUG ((DEBUG_INFO, "OC: Missing external GUI protocol - %r\n", Status));
-      return;
-    }
-
-    if (Interface->Revision != OC_INTERFACE_REVISION) {
-      DEBUG ((
-        DEBUG_INFO,
-        "OC: Incompatible external GUI protocol - %u vs %u\n",
-        Interface->Revision,
-        OC_INTERFACE_REVISION
-        ));
-      return;
+      Interface = NULL;
     }
   } else {
     Interface = NULL;
@@ -459,9 +596,12 @@ OcMiscBoot (
   Context->ExcludeHandle      = LoadHandle;
   Context->CustomEntryContext = Storage;
   Context->CustomRead         = OcToolLoadEntry;
+  Context->CustomDescribe     = OcToolDescribeEntry;
   Context->PrivilegeContext   = Privilege;
   Context->RequestPrivilege   = OcShowSimplePasswordRequest;
-  Context->BalloonAllocator   = OcGetBallooningHandler (Config);
+  Context->ShowMenu           = OcShowSimpleBootMenu;
+  Context->PickerMode         = PickerMode;
+  Context->ConsoleAttributes  = Config->Misc.Boot.PickerAttributes;
 
   if ((Config->Misc.Security.ExposeSensitiveData & OCS_EXPOSE_VERSION_UI) != 0) {
     Context->TitleSuffix      = OcMiscGetVersionString ();
@@ -478,7 +618,8 @@ OcMiscBoot (
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);
-      Context->CustomEntries[EntryIndex].Hidden    = Config->Misc.Entries.Values[Index]->Hidden;
+      Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Entries.Values[Index]->Auxiliary;
+      Context->CustomEntries[EntryIndex].Tool      = FALSE;
       ++EntryIndex;
     }
   }
@@ -493,20 +634,18 @@ OcMiscBoot (
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Arguments);
-      Context->CustomEntries[EntryIndex].Hidden    = TRUE;
+      Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Tools.Values[Index]->Auxiliary;
+      Context->CustomEntries[EntryIndex].Tool      = TRUE;
       ++EntryIndex;
     }
   }
 
   Context->AllCustomEntryCount = EntryIndex;
   Context->PollAppleHotKeys    = Config->Misc.Boot.PollAppleHotKeys;
+  Context->HideAuxiliary       = Config->Misc.Boot.HideAuxiliary;
+  Context->PickerAudioAssist   = Config->Misc.Boot.PickerAudioAssist;
 
   HotkeyNumber = OcLoadPickerHotKeys (Context);
-  
-  SetConsolePicker (
-    OC_BLOB_GET (&Config->Misc.Boot.ConsoleMode),
-    Context->PickerCommand == OcPickerShowPicker
-    );
   
   Context->ShowNvramReset = Config->Misc.Security.AllowNvramReset;
   Context->AllowSetDefault = Config->Misc.Security.AllowSetDefault;
@@ -517,7 +656,7 @@ OcMiscBoot (
   if (Interface != NULL) {
     Status = Interface->ShowInteface (Interface, Storage, Context);
   } else {
-    Status = OcRunSimpleBootPicker (Context, HotkeyNumber);
+    Status = OcRunBootPicker (Context, HotkeyNumber);
   }
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "OC: Failed to show boot menu!\n"));
@@ -547,21 +686,4 @@ OcMiscUefiQuirksLoaded (
     sizeof (Config->Misc.Security.ScanPolicy),
     &Config->Misc.Security.ScanPolicy
     );
-
-  //
-  // Regardless of the mode ensure our cursor is disabled as we do not need it.
-  // This is a bit ugly, but works for most platforms we have:
-  // - Firstly disable it on platforms that start with it for whatever reason.
-  //   Generally Insyde laptops are happy with that.
-  // - Secondly change the mode, on APTIO it may reenable the cursor in Text mode.
-  // - Thirdly disable it again to ensure it is definitely disabled.
-  //
-
-  OcConsoleDisableCursor ();
-  OcConsoleControlSetBehaviour (
-    ParseConsoleControlBehaviour (
-      OC_BLOB_GET (&Config->Misc.Boot.ConsoleBehaviourUi)
-      )
-    );
-  OcConsoleDisableCursor ();
 }

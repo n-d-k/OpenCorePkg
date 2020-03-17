@@ -69,13 +69,13 @@ OcStartImage (
   OUT CHAR16                      **ExitData    OPTIONAL
   )
 {
-  EFI_STATUS   Status;
-  CHAR16       *DevicePathText;
+  EFI_STATUS                       Status;
+  EFI_CONSOLE_CONTROL_SCREEN_MODE  OldMode;
+  CHAR16                           *DevicePathText;
   
   DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
   
-  if (Chosen->Type == OcBootApple || Chosen->Type == OcBootAppleRecovery
-    || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
+  if ((Chosen->Type & OC_BOOT_APPLE_ANY) != 0 || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
     DEBUG ((DEBUG_INFO, "OC: OcLoadBooterUefiSupport...\n"));
     OcLoadBooterUefiSupport (&mOpenCoreConfiguration);
     
@@ -91,17 +91,8 @@ OcStartImage (
   }
   
   FreePool (DevicePathText);
-  
-  SetScreenResolution (
-    OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.Resolution),
-    mOpenCoreConfiguration.Uefi.Quirks.ReconnectOnResChange
-    );
-  
-  OcConsoleControlSetBehaviour (
-    ParseConsoleControlBehaviour (
-      OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.ConsoleBehaviourOs)
-      )
-    );
+
+  OldMode = OcConsoleControlSetMode (EfiConsoleControlScreenGraphics);
 
   Status = gBS->StartImage (
     ImageHandle,
@@ -113,14 +104,7 @@ OcStartImage (
     DEBUG ((DEBUG_WARN, "OC: Boot failed - %r\n", Status));
   }
 
-  //
-  // Restore ui mode.
-  //
-  OcConsoleControlSetBehaviour (
-    ParseConsoleControlBehaviour (
-      OC_BLOB_GET (&mOpenCoreConfiguration.Misc.Boot.ConsoleBehaviourUi)
-      )
-    );
+  OcConsoleControlSetMode (OldMode);
 
   return Status;
 }
@@ -149,14 +133,14 @@ OcMain (
 
   OcCpuScanProcessor (&mOpenCoreCpuInfo);
 
+  DEBUG ((DEBUG_INFO, "OC: OcLoadNvramSupport...\n"));
+  OcLoadNvramSupport (Storage, &mOpenCoreConfiguration);
   DEBUG ((DEBUG_INFO, "OC: OcLoadUefiSupport...\n"));
   OcLoadUefiSupport (Storage, &mOpenCoreConfiguration, &mOpenCoreCpuInfo);
   if (mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
     DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for all OSes...\n"));
     OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
   }
-  DEBUG ((DEBUG_INFO, "OC: OcLoadNvramSupport...\n"));
-  OcLoadNvramSupport (Storage, &mOpenCoreConfiguration);
   DEBUG ((DEBUG_INFO, "OC: OcMiscLateInit...\n"));
   OcMiscLateInit (&mOpenCoreConfiguration, LoadPath, &LoadHandle);
   DEBUG ((DEBUG_INFO, "OC: OcLoadKernelSupport...\n"));

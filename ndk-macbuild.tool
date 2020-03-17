@@ -59,12 +59,20 @@ package() {
   mkdir -p tmp/Utilities || exit 1
   cp OpenCore.efi tmp/EFI/OC/ || exit 1
   cp BOOTx64.efi tmp/EFI/BOOT/ || exit 1
-  cp AppleUsbKbDxe.efi tmp/EFI/OC/Drivers/ || exit 1
-  cp FwRuntimeServices.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp OpenUsbKbDxe.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp OpenRuntime.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp HiiDatabase.efi tmp/EFI/OC/Drivers/ || exit 1
   cp NvmExpressDxe.efi tmp/EFI/OC/Drivers/ || exit 1
   cp XhciDxe.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp BootKicker.efi tmp/EFI/OC/Tools/ || exit 1
   cp CleanNvram.efi tmp/EFI/OC/Tools/ || exit 1
+  cp GopStop.efi tmp/EFI/OC/Tools/ || exit 1
+  cp HdaCodecDump.efi tmp/EFI/OC/Tools/ || exit 1
   cp VerifyMsrE2.efi tmp/EFI/OC/Tools/ || exit 1
+  cp Shell.efi tmp/EFI/OC/Tools/OpenShell.efi || exit 1
+  cp KeyTester.efi tmp/EFI/OC/Tools/ || exit 1
+  cp ChipTune.efi tmp/EFI/OC/Tools/ || exit 1
+  cp OpenControl.efi tmp/EFI/OC/Tools/ || exit 1
   cp "${selfdir}/Docs/Configuration.pdf" tmp/Docs/ || exit 1
   cp "${selfdir}/Docs/Differences/Differences.pdf" tmp/Docs/ || exit 1
   cp "${selfdir}/Docs/Sample.plist" tmp/Docs/ || exit 1
@@ -72,11 +80,11 @@ package() {
   cp "${selfdir}/Changelog.md" tmp/Docs/ || exit 1
   cp -r "${selfdir}/Docs/AcpiSamples/" tmp/Docs/AcpiSamples/ || exit 1
   cp -r "${selfdir}/Icons/" tmp/EFI/OC/Icons/ || exit 1
-  cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/BootInstall" tmp/Utilities/ || exit 1
-  cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/CreateVault" tmp/Utilities/ || exit 1
-  cp -r "${selfdir}/edk2/OcSupportPkg/Utilities/LogoutHook" tmp/Utilities/ || exit 1
+  cp -r "${selfdir}/Utilities/BootInstall" tmp/Utilities/ || exit 1
+  cp -r "${selfdir}/Utilities/CreateVault" tmp/Utilities/ || exit 1
+  cp -r "${selfdir}/Utilities/LogoutHook" tmp/Utilities/ || exit 1
   pushd tmp || exit 1
-  zip -qry -FS ../"OpenCore-${ver}-${2}.zip" * || exit 1
+  zip -qry -FS ../"NDK-OpenCore-${ver}-${2}.zip" * || exit 1
   popd || exit 1
   rm -rf tmp || exit 1
   popd || exit 1
@@ -95,7 +103,6 @@ fi
 if [ "$(nasm -v)" = "" ] || [ "$(nasm -v | grep Apple)" != "" ]; then
   echo "Missing or incompatible nasm!"
   echo "Download the latest nasm from http://www.nasm.us/pub/nasm/releasebuilds/"
-  prompt "Install last tested version automatically?"
   pushd /tmp >/dev/null
   rm -rf nasm-mac64.zip
   curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/nasm-mac64.zip" || exit 1
@@ -113,7 +120,6 @@ fi
 if [ "$(which mtoc.NEW)" == "" ] || [ "$(which mtoc)" == "" ]; then
   echo "Missing mtoc or mtoc.NEW!"
   echo "To build mtoc follow: https://github.com/tianocore/tianocore.github.io/wiki/Xcode#mac-os-x-xcode"
-  prompt "Install prebuilt mtoc and mtoc.NEW automatically?"
   pushd /tmp >/dev/null
   rm -f mtoc mtoc-mac64.zip
   curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/mtoc-mac64.zip" || exit 1
@@ -167,8 +173,6 @@ updaterepo "https://github.com/tianocore/edk2.git" edk2 master || exit 1
 cd edk2
 updaterepo "https://github.com/acidanthera/EfiPkg" EfiPkg master || exit 1
 updaterepo "https://github.com/acidanthera/MacInfoPkg" MacInfoPkg master || exit 1
-updaterepo "https://github.com/n-d-k/OcSupportPkg.git" OcSupportPkg master || exit 1
-updaterepo "https://github.com/n-d-k/NvmExpressDxePkg.git" NvmExpressDxePkg master || exit 1
 
 if [ ! -d OpenCorePkg ]; then
   ln -s .. OpenCorePkg || exit 1
