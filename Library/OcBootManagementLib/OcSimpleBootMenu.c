@@ -1135,7 +1135,7 @@ InitScreen (
     mIconSpaceSize = 288;
   } else if (mUiScale == 0 && mScreenHeight <= 800) {
     mUiScale = 8;
-    mTextScale = 8;
+    mTextScale = 16;
     mIconPaddingSize = 3;
     mIconSpaceSize = 70;
   } else {
@@ -1408,7 +1408,7 @@ CreateTextImage (
     return NULL;
   }
   
-  Width = (StrLen (String) * (INTN) CHAR_WIDTH);
+  Width = ((StrLen (String) + 1) * (INTN) CHAR_WIDTH);
   Image = CreateFilledImage (Width, mTextHeight, TRUE, &mTransparentPixel);
   if (Image != NULL) {
     TextWidth = RenderText (String, Image, 0, 0, 0xFFFF);
