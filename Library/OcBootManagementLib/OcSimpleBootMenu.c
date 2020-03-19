@@ -130,15 +130,6 @@ mSelectorUsed = TRUE;
 BOOLEAN
 mAlphaEffect = TRUE;
 
-/* Colors are now customized by the optional small 16x16 pixels png color example files in icons folder (Can be anysize only 1st pixels will be used for color setting).
-   font_color.png (Entry discription color and selection color)
-   background_color.png (Background color)
-   Background.png (Wallpaper bacground instead, preferly matching with screen resolution setting.)
- 
-   Background.png will be checked first, will use it if found in icons foler, if not found, then background_color.png will be checked,
-   if not found then 1st pixel color (top/left pixel) of fontn.
- */
-
 /*=========== Default colors settings ==============*/
 
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL mTransparentPixel  = {0x00, 0x00, 0x00, 0x00};
@@ -494,7 +485,7 @@ BltMenuImage (
                    NewImage->Height,
                    NewImage->Width,
                    Image->Width,
-                   mAlphaEffect ? 200 : 0
+                   mAlphaEffect ? ICON_OPACITY_LEVEL : ICON_OPACITY_FULL
                    );
   
   DrawImageArea (NewImage, 0, 0, 0, 0, Xpos, Ypos);
@@ -744,12 +735,9 @@ CreateIcon (
   CHAR16                 *FilePath;
   NDK_UI_IMAGE           *Icon;
   NDK_UI_IMAGE           *ScaledImage;
-  NDK_UI_IMAGE           *TmpImage;
-  BOOLEAN                IsAlpha;
   
   Icon = NULL;
   ScaledImage = NULL;
-  TmpImage = NULL;
   
   switch (Type) {
     case OC_BOOT_WINDOWS:
@@ -822,21 +810,12 @@ CreateIcon (
   if (FileExist (FilePath)) {
     Icon = DecodePNGFile (FilePath);
   } else {
-    Icon = CreateFilledImage (128, 128, TRUE, &mBluePixel);
+    Icon = CreateFilledImage ((mIconSpaceSize - (mIconPaddingSize * 2)), (mIconSpaceSize - (mIconPaddingSize * 2)), TRUE, &mBluePixel);
   }
   
   if (Icon->Width > 128 && mMenuImage == NULL) {
     mIconSpaceSize = Icon->Width + (mIconPaddingSize * 2);
     mUiScale = 16;
-  }
-  
-  if (Icon != NULL) {
-    TmpImage = CreateFilledImage (Icon->Width, Icon->Height, TRUE, &mTransparentPixel);
-    IsAlpha = Icon->IsAlpha;
-    Icon->IsAlpha = FALSE;
-    ComposeImage (Icon, TmpImage, 0, 0);
-    Icon->IsAlpha = IsAlpha;
-    FreeImage (TmpImage);
   }
   
   ScaledImage = CopyScaledImage (Icon, mUiScale);
@@ -927,14 +906,13 @@ SwitchIconSelection (
       
       Offset = (NewImage->Width - SelectorImage->Width) >> 1;
       
-      RawComposeAlpha (NewImage->Bitmap + Offset * NewImage->Width + Offset,
-                       SelectorImage->Bitmap,
-                       SelectorImage->Width,
-                       SelectorImage->Height,
-                       NewImage->Width,
-                       SelectorImage->Width,
-                       0
-                       );
+      RawCompose (NewImage->Bitmap + Offset * NewImage->Width + Offset,
+                  SelectorImage->Bitmap,
+                  SelectorImage->Width,
+                  SelectorImage->Height,
+                  NewImage->Width,
+                  SelectorImage->Width
+                  );
       
       FreeImage (SelectorImage);
     } else {
@@ -965,7 +943,7 @@ SwitchIconSelection (
                    Icon->Height,
                    NewImage->Width,
                    Icon->Width,
-                   (!Selected && mAlphaEffect) ? 200 : 0
+                   (!Selected && mAlphaEffect) ? ICON_OPACITY_LEVEL : ICON_OPACITY_FULL
                    );
   
   FreeImage (Icon);
@@ -1373,18 +1351,18 @@ RenderText (
       break;
     }
     RawCompose (BufferPtr - LeftSpace + 2, FontPixelData + C * mFontWidth + RightSpace,
-                  RealWidth,
-                  mFontHeight,
-                  BufferLineOffset,
-                  FontLineOffset
-                  );
+                RealWidth,
+                mFontHeight,
+                BufferLineOffset,
+                FontLineOffset
+                );
     
     if (Index == Cursor) {
       C = 0x5F;
       RawCompose (BufferPtr - LeftSpace + 2, FontPixelData + C * mFontWidth + RightSpace,
-                    RealWidth, mFontHeight,
-                    BufferLineOffset, FontLineOffset
-                    );
+                  RealWidth, mFontHeight,
+                  BufferLineOffset, FontLineOffset
+                  );
     }
     BufferPtr += RealWidth - LeftSpace + 2;
   }
@@ -1439,8 +1417,7 @@ VOID
 PrintTextGraphicXY (
   IN CHAR16                           *String,
   IN INTN                             Xpos,
-  IN INTN                             Ypos,
-  IN BOOLEAN                          Faded
+  IN INTN                             Ypos
   )
 {
   NDK_UI_IMAGE                        *TextImage;
@@ -1465,21 +1442,7 @@ PrintTextGraphicXY (
     Ypos = mScreenHeight - (TextImage->Height + 5);
   }
   
-  if (Faded) {
-    NewImage = CreateImage (TextImage->Width, TextImage->Height, TRUE);
-    RawComposeAlpha (NewImage->Bitmap,
-                     TextImage->Bitmap,
-                     NewImage->Width,
-                     NewImage->Height,
-                     NewImage->Width,
-                     TextImage->Width,
-                     200
-                     );
-    FreeImage (TextImage);
-    BltImageAlpha (NewImage, Xpos, Ypos, &mTransparentPixel, 16);
-  } else {
-    BltImageAlpha (TextImage, Xpos, Ypos, &mTransparentPixel, 16);
-  }
+  BltImageAlpha (TextImage, Xpos, Ypos, &mTransparentPixel, 16);
 }
 //
 //     Text rendering end
@@ -1542,14 +1505,13 @@ PrintLabel (
      
     TakeImage (NewImage, NewXpos, NewYpos + mIconSpaceSize + 10, LabelImage->Width, LabelImage->Height);
      
-    RawComposeAlpha (NewImage->Bitmap,
-                     LabelImage->Bitmap,
-                     NewImage->Width,
-                     NewImage->Height,
-                     NewImage->Width,
-                     LabelImage->Width,
-                     200
-                     );
+    RawCompose (NewImage->Bitmap,
+                LabelImage->Bitmap,
+                NewImage->Width,
+                NewImage->Height,
+                NewImage->Width,
+                LabelImage->Width
+                );
      
     FreeImage (LabelImage);
     
@@ -1591,8 +1553,8 @@ PrintDateTime (
     ClearScreenArea (&mTransparentPixel, 0, 0, mScreenWidth, mFontHeight * 5);
     UnicodeSPrint (DateStr, sizeof (DateStr), L" %02u/%02u/%04u", DateTime.Month, DateTime.Day, DateTime.Year);
     UnicodeSPrint (TimeStr, sizeof (TimeStr), L" %02u:%02u:%02u%s", Hour, DateTime.Minute, DateTime.Second, Str);
-    PrintTextGraphicXY (DateStr, mScreenWidth, 5, FALSE);
-    PrintTextGraphicXY (TimeStr, mScreenWidth, (mTextScale == 16) ? (mFontHeight + 5 + 2) : ((mFontHeight * 2) + 5 + 2), FALSE);
+    PrintTextGraphicXY (DateStr, mScreenWidth, 5);
+    PrintTextGraphicXY (TimeStr, mScreenWidth, (mTextScale == 16) ? (mFontHeight + 5 + 2) : ((mFontHeight * 2) + 5 + 2));
   } else {
     ClearScreenArea (&mTransparentPixel, 0, 0, mScreenWidth, mFontHeight * 5);
   }
@@ -1613,7 +1575,7 @@ PrintOcVersion (
   
   NewString = AsciiStrCopyToUnicode (String, 0);
   if (String != NULL && ShowAll) {
-    PrintTextGraphicXY (NewString, mScreenWidth, mScreenHeight, FALSE);
+    PrintTextGraphicXY (NewString, mScreenWidth, mScreenHeight);
   } else {
     ClearScreenArea (&mTransparentPixel,
                        mScreenWidth - ((StrLen(NewString) * mFontWidth) * 2),
@@ -1633,7 +1595,7 @@ PrintDefaultBootMode (
   CHAR16             String[18];
   if (ShowAll) {
     UnicodeSPrint (String, sizeof (String), L"Auto default: %s", mAllowSetDefault ? L"Off" : L"On");
-    PrintTextGraphicXY (String, 8, mScreenHeight, FALSE);
+    PrintTextGraphicXY (String, 8, mScreenHeight);
   } else {
     ClearScreenArea (&mTransparentPixel,
                        0,
@@ -1654,7 +1616,7 @@ PrintTimeOutMessage (
   
   if (Timeout > 0) {
     UnicodeSPrint (String, sizeof (String), L"%s %02u %s.", L"The default boot selection will start in", Timeout, L"seconds");
-    PrintTextGraphicXY (String, -1, (mScreenHeight / 4) * 3, FALSE);
+    PrintTextGraphicXY (String, -1, (mScreenHeight / 4) * 3);
   } else {
     ClearScreenArea (&mTransparentPixel, 0, ((mScreenHeight / 4) * 3) - 4, mScreenWidth, mFontHeight * 2);
   }
@@ -1748,14 +1710,13 @@ DrawPointer (
            (UINTN) (POINTER_WIDTH * POINTER_HEIGHT * sizeof(EFI_GRAPHICS_OUTPUT_BLT_PIXEL))
            );
 
-  RawComposeAlpha (mPointer.NewImage->Bitmap,
-                   mPointer.Pointer->Bitmap,
-                   mPointer.NewImage->Width,
-                   mPointer.NewImage->Height,
-                   mPointer.NewImage->Width,
-                   mPointer.Pointer->Width,
-                   0
-                   );
+  RawCompose (mPointer.NewImage->Bitmap,
+              mPointer.Pointer->Bitmap,
+              mPointer.NewImage->Width,
+              mPointer.NewImage->Height,
+              mPointer.NewImage->Width,
+              mPointer.Pointer->Width
+              );
   
   DrawImageArea (mPointer.NewImage,
                  0,
@@ -1787,8 +1748,6 @@ InitMouse (
   )
 {
   EFI_STATUS          Status;
-  NDK_UI_IMAGE        *TmpImage;
-  BOOLEAN             IsAlpha;
   CHAR16              *FilePath;
   
   Status = EFI_UNSUPPORTED;
@@ -1829,14 +1788,7 @@ InitMouse (
     mPointer.SimplePointerProtocol = NULL;
     return EFI_NOT_FOUND;
   }
-  
-  TmpImage = CreateFilledImage (mPointer.Pointer->Width, mPointer.Pointer->Height, TRUE, &mTransparentPixel);
-  IsAlpha = mPointer.Pointer->IsAlpha;
-  mPointer.Pointer->IsAlpha = FALSE;
-  ComposeImage (mPointer.Pointer, TmpImage, 0, 0);
-  mPointer.Pointer->IsAlpha = IsAlpha;
-  FreeImage (TmpImage);
-  
+
   mPointer.LastClickTime = 0;
   mPointer.OldPlace.Xpos = (INTN) (mScreenWidth >> 2);
   mPointer.OldPlace.Ypos = (INTN) (mScreenHeight >> 2);
