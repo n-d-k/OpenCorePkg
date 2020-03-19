@@ -279,26 +279,31 @@ RawComposeAlpha (
   INTN       Y;
   INTN       Alpha;
   INTN       InvAlpha;
+  INTN       TopAlpha;
 
   if (CompBasePtr == NULL || TopBasePtr == NULL) {
     return;
   }
   
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL *FirstTopPtr = TopBasePtr;
+  if (Opacity == 0) {
+    RawCompose (CompBasePtr,
+                TopBasePtr,
+                Width,
+                Height,
+                CompLineOffset,
+                TopLineOffset
+                );
+    return;
+  }
+  
   for (Y = 0; Y < Height; ++Y) {
     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopPtr = TopBasePtr;
     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompPtr = CompBasePtr;
     for (X = 0; X < Width; ++X) {
-      if ((TopPtr->Red != FirstTopPtr->Red
-          && TopPtr->Blue != FirstTopPtr->Blue
-          && TopPtr->Green != FirstTopPtr->Green
-          && TopPtr->Reserved != FirstTopPtr->Reserved)
-          || (TopPtr->Red > 0
-          && TopPtr->Blue > 0
-          && TopPtr->Green > 0)
-          ) {
-        Alpha =  (Opacity > 0) ? (Opacity * TopPtr->Reserved) / 255 : TopPtr->Reserved + 1;
-        InvAlpha = (Opacity > 0) ? 256 - ((Opacity * TopPtr->Reserved) / 255) : 256 - TopPtr->Reserved;
+      TopAlpha = TopPtr->Reserved & 0xFF;
+      if (TopAlpha != 0) {
+        Alpha =  (Opacity * TopAlpha) / 255;
+        InvAlpha = 255 - ((Opacity * TopAlpha) / 255);
         CompPtr->Blue = (UINT8) ((TopPtr->Blue * Alpha + CompPtr->Blue * InvAlpha) >> 8);
         CompPtr->Green = (UINT8) ((TopPtr->Green * Alpha + CompPtr->Green * InvAlpha) >> 8);
         CompPtr->Red = (UINT8) ((TopPtr->Red * Alpha + CompPtr->Red * InvAlpha) >> 8);
@@ -515,7 +520,7 @@ DecodePNG (
       Pixel->Red = *DataWalker++;
       Pixel->Green = *DataWalker++;
       Pixel->Blue = *DataWalker++;
-      Pixel->Reserved = 255 - *DataWalker++;
+      Pixel->Reserved = *DataWalker++;
       Pixel++;
     }
   }

@@ -87,6 +87,9 @@ typedef struct _pointers {
 
 /*================ ImageSupport.c =============*/
 
+#define ICON_OPACITY_LEVEL  240
+#define ICON_OPACITY_FULL   0
+
 NDK_UI_IMAGE *
 CreateImage (
   IN UINT16       Width,
