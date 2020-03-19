@@ -735,9 +735,11 @@ CreateIcon (
   CHAR16                 *FilePath;
   NDK_UI_IMAGE           *Icon;
   NDK_UI_IMAGE           *ScaledImage;
+  INTN                   IconScale;
   
   Icon = NULL;
   ScaledImage = NULL;
+  IconScale = 16;
   
   switch (Type) {
     case OC_BOOT_WINDOWS:
@@ -813,12 +815,20 @@ CreateIcon (
     Icon = CreateFilledImage ((mIconSpaceSize - (mIconPaddingSize * 2)), (mIconSpaceSize - (mIconPaddingSize * 2)), TRUE, &mBluePixel);
   }
   
-  if (Icon->Width > 128 && mMenuImage == NULL) {
-    mIconSpaceSize = Icon->Width + (mIconPaddingSize * 2);
-    mUiScale = 16;
+  if (Icon->Width == 256 && mScreenHeight < 2160) {
+    IconScale = 8;
   }
   
-  ScaledImage = CopyScaledImage (Icon, mUiScale);
+  if (Icon->Width == 256 && mScreenHeight <= 800) {
+    IconScale = 4;
+  }
+  
+  if (Icon->Width > 128 && mMenuImage == NULL) {
+    mIconSpaceSize = ((Icon->Width * IconScale) >> 4) + (mIconPaddingSize * 2);
+    mUiScale = (mUiScale == 8) ? 8 : 16;
+  }
+  
+  ScaledImage = CopyScaledImage (Icon, (IconScale < mUiScale) ? IconScale : mUiScale);
   FreeImage (Icon);
   CreateMenuImage (ScaledImage, IconCount);
 }
@@ -1081,17 +1091,18 @@ InitScreen (
   //
   // Try to open GOP first
   //
-  Status = gBS->HandleProtocol (gST->ConsoleOutHandle, &gEfiGraphicsOutputProtocolGuid, (VOID **) &mGraphicsOutput);
-  if (EFI_ERROR (Status)) {
-    mGraphicsOutput = NULL;
-    //
-    // Open GOP failed, try to open UGA
-    //
-    Status = gBS->HandleProtocol (gST->ConsoleOutHandle, &gEfiUgaDrawProtocolGuid, (VOID **) &mUgaDraw);
+  if (mGraphicsOutput == NULL) {
+    Status = gBS->HandleProtocol (gST->ConsoleOutHandle, &gEfiGraphicsOutputProtocolGuid, (VOID **) &mGraphicsOutput);
     if (EFI_ERROR (Status)) {
-      mUgaDraw = NULL;
+      mGraphicsOutput = NULL;
+      //
+      // Open GOP failed, try to open UGA
+      //
+      Status = gBS->HandleProtocol (gST->ConsoleOutHandle, &gEfiUgaDrawProtocolGuid, (VOID **) &mUgaDraw);
+      if (EFI_ERROR (Status)) {
+        mUgaDraw = NULL;
+      }
     }
-    
   }
   
   if (mGraphicsOutput != NULL) {
