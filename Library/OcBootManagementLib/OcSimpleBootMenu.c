@@ -136,6 +136,7 @@ EFI_GRAPHICS_OUTPUT_BLT_PIXEL mTransparentPixel  = {0x00, 0x00, 0x00, 0x00};
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL mBluePixel  = {0x7f, 0x0f, 0x0f, 0xff};
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL mBlackPixel  = {0x00, 0x00, 0x00, 0xff};
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL mLowWhitePixel  = {0xb8, 0xbd, 0xbf, 0xff};
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL mGrayPixel  = {0xaa, 0xaa, 0xaa, 0xff};
 
 // Selection and Entry's description font color
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL *mFontColorPixel = &mLowWhitePixel;
@@ -961,6 +962,55 @@ SwitchIconSelection (
   FreeImage (NewImage);
 }
 
+VOID
+ScaleBackgroundImage (
+  VOID
+  )
+{
+  NDK_UI_IMAGE                  *Image;
+  INTN                          OffsetX;
+  INTN                          OffsetX1;
+  INTN                          OffsetX2;
+  INTN                          OffsetY;
+  INTN                          OffsetY1;
+  INTN                          OffsetY2;
+  
+  Image = CopyScaledImage (mBackgroundImage, (mScreenWidth << 4) / mBackgroundImage->Width);
+  FreeImage (mBackgroundImage);
+  mBackgroundImage = CreateFilledImage (mScreenWidth, mScreenHeight, FALSE, &mGrayPixel);
+  OffsetX = mScreenWidth - Image->Width;
+  if (OffsetX >= 0) {
+    OffsetX1 = OffsetX >> 1;
+    OffsetX2 = 0;
+    OffsetX = Image->Width;
+  } else {
+    OffsetX1 = 0;
+    OffsetX2 = (-OffsetX) >> 1;
+    OffsetX = mScreenWidth;
+  }
+  
+  OffsetY = mScreenHeight - Image->Height;
+  if (OffsetY >= 0) {
+    OffsetY1 = OffsetY >> 1;
+    OffsetY2 = 0;
+    OffsetY = Image->Height;
+  } else {
+    OffsetY1 = 0;
+    OffsetY2 = (-OffsetY) >> 1;
+    OffsetY = mScreenHeight;
+  }
+  
+  RawCopy (mBackgroundImage->Bitmap + OffsetY1 * mScreenWidth + OffsetX1,
+           Image->Bitmap + OffsetY2 * Image->Width + OffsetX2,
+           OffsetX,
+           OffsetY,
+           mScreenWidth,
+           Image->Width
+           );
+  
+  FreeImage (Image);
+}
+
 STATIC
 VOID
 ClearScreen (
@@ -976,8 +1026,7 @@ ClearScreen (
   }
   
   if (mBackgroundImage != NULL && (mBackgroundImage->Width != mScreenWidth || mBackgroundImage->Height != mScreenHeight)) {
-    FreeImage(mBackgroundImage);
-    mBackgroundImage = NULL;
+    ScaleBackgroundImage ();
   }
   
   if (mBackgroundImage == NULL) {
