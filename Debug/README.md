@@ -124,8 +124,31 @@ reload-uefi
 b DebugBreak
 ```
 
-For simplicitly `macgdb.tool` performs them all. Note, that you need to run `reload-uefi`
+For simplicitly `rungdb.tool` performs them all. Note, that you need to run `reload-uefi`
 after any new binary loads.
+
+#### CLANGDWARF
+
+CLANGDWARF toolchain is an LLVM-based toolchain that directly generates
+PE/COFF images with DWARF debug information via LLD linker. LLVM 9.0 or
+newer with working dead code stripping in LLD is required for this to work
+([LLD patches](https://bugs.llvm.org/show_bug.cgi?id=45273)).
+
+*Installation*: After applying `ClangDwarf.patch` hack onto EDK II `CLANGPDB`
+toolchain will behave as if it was `CLANGDWARF`.
+
+For debugging support it may be necessary to set `EFI_SYMBOL_PATH`
+environment variable to `:`-separated list of paths with `.debug` files,
+for example:
+
+```
+export EFI_SYMBOL_PATH="$WORKSPACE/Build/OvmfX64/NOOPT_CLANGPDB/X64:$WORKSPACE/Build/OpenCorePkg/NOOPT_CLANGPDB/X64"
+```
+
+The reason for this requirement is fragile `--add-gnudebug-link` option
+[implementation in llvm-objcopy](https://bugs.llvm.org/show_bug.cgi?id=45277).
+It strips path from the debug file preserving only filename and also does not
+update DataDirectory debug entry.
 
 #### References
 
