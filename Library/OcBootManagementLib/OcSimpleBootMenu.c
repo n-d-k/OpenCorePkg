@@ -966,40 +966,62 @@ ScaleBackgroundImage (
   INTN                          OffsetY;
   INTN                          OffsetY1;
   INTN                          OffsetY2;
+  UINTN                         Index;
+  UINTN                         Index1;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL *Pixel;
   
-  Image = CopyScaledImage (mBackgroundImage, (mScreenWidth << 4) / mBackgroundImage->Width);
-  FreeImage (mBackgroundImage);
-  mBackgroundImage = CreateFilledImage (mScreenWidth, mScreenHeight, FALSE, &mGrayPixel);
-  OffsetX = mScreenWidth - Image->Width;
-  if (OffsetX >= 0) {
-    OffsetX1 = OffsetX >> 1;
-    OffsetX2 = 0;
-    OffsetX = Image->Width;
+  // Tile //
+  if (mBackgroundImage->Width < (mScreenWidth / 4)) {
+    Image = CopyImage (mBackgroundImage);
+    FreeImage (mBackgroundImage);
+    mBackgroundImage = CreateFilledImage (mScreenWidth, mScreenHeight, FALSE, &mGrayPixel);
+    
+    OffsetX = (Image->Width * ((mScreenWidth - 1) / Image->Width + 1) - mScreenWidth) >> 1;
+    OffsetY = (Image->Height * ((mScreenHeight - 1) / Image->Height + 1) - mScreenHeight) >> 1;
+    
+    Pixel = mBackgroundImage->Bitmap;
+    for (Index = 0; Index < mScreenHeight; Index++) {
+      OffsetY1 = ((Index + OffsetY) % Image->Height) * Image->Width;
+      for (Index1 = 0; Index1 < mScreenWidth; Index1++) {
+        *Pixel++ = Image->Bitmap[OffsetY1 + ((Index1 + OffsetX) % Image->Width)];
+      }
+    }
+  // Scale & Crop //
   } else {
-    OffsetX1 = 0;
-    OffsetX2 = (-OffsetX) >> 1;
-    OffsetX = mScreenWidth;
+    Image = CopyScaledImage (mBackgroundImage, (mScreenWidth << 4) / mBackgroundImage->Width);
+    FreeImage (mBackgroundImage);
+    mBackgroundImage = CreateFilledImage (mScreenWidth, mScreenHeight, FALSE, &mGrayPixel);
+    
+    OffsetX = mScreenWidth - Image->Width;
+    if (OffsetX >= 0) {
+      OffsetX1 = OffsetX >> 1;
+      OffsetX2 = 0;
+      OffsetX = Image->Width;
+    } else {
+      OffsetX1 = 0;
+      OffsetX2 = (-OffsetX) >> 1;
+      OffsetX = mScreenWidth;
+    }
+    
+    OffsetY = mScreenHeight - Image->Height;
+    if (OffsetY >= 0) {
+      OffsetY1 = OffsetY >> 1;
+      OffsetY2 = 0;
+      OffsetY = Image->Height;
+    } else {
+      OffsetY1 = 0;
+      OffsetY2 = (-OffsetY) >> 1;
+      OffsetY = mScreenHeight;
+    }
+    
+    RawCopy (mBackgroundImage->Bitmap + OffsetY1 * mScreenWidth + OffsetX1,
+             Image->Bitmap + OffsetY2 * Image->Width + OffsetX2,
+             OffsetX,
+             OffsetY,
+             mScreenWidth,
+             Image->Width
+             );
   }
-  
-  OffsetY = mScreenHeight - Image->Height;
-  if (OffsetY >= 0) {
-    OffsetY1 = OffsetY >> 1;
-    OffsetY2 = 0;
-    OffsetY = Image->Height;
-  } else {
-    OffsetY1 = 0;
-    OffsetY2 = (-OffsetY) >> 1;
-    OffsetY = mScreenHeight;
-  }
-  
-  RawCopy (mBackgroundImage->Bitmap + OffsetY1 * mScreenWidth + OffsetX1,
-           Image->Bitmap + OffsetY2 * Image->Width + OffsetX2,
-           OffsetX,
-           OffsetY,
-           mScreenWidth,
-           Image->Width
-           );
-  
   FreeImage (Image);
 }
 
