@@ -36,6 +36,43 @@
 
 #include <BootManagementInternal.h>
 
+/*========== UI's defined variables ==========*/
+
+#define UI_IMAGE_POINTER              L"EFI\\OC\\Icons\\pointer4k.png"
+#define UI_IMAGE_POINTER_ALT          L"EFI\\OC\\Icons\\pointer.png"
+#define UI_IMAGE_FONT                 L"EFI\\OC\\Icons\\font.png"
+#define UI_IMAGE_FONT_COLOR           L"EFI\\OC\\Icons\\font_color.png"
+#define UI_IMAGE_BACKGROUND           L"EFI\\OC\\Icons\\background4k.png"
+#define UI_IMAGE_BACKGROUND_ALT       L"EFI\\OC\\Icons\\background.png"
+#define UI_IMAGE_BACKGROUND_COLOR     L"EFI\\OC\\Icons\\background_color.png"
+#define UI_IMAGE_SELECTOR             L"EFI\\OC\\Icons\\selector4k.png"
+#define UI_IMAGE_SELECTOR_ALT         L"EFI\\OC\\Icons\\selector.png"
+#define UI_IMAGE_SELECTOR_OFF         L"EFI\\OC\\Icons\\no_selector.png"
+#define UI_IMAGE_LABEL                L"EFI\\OC\\Icons\\label.png"
+#define UI_IMAGE_LABEL_OFF            L"EFI\\OC\\Icons\\no_label.png"
+#define UI_IMAGE_ALPHA_OFF            L"EFI\\OC\\Icons\\no_alpha.png"
+#define UI_IMAGE_TEXT_SCALE_OFF       L"EFI\\OC\\Icons\\No_text_scaling.png"
+#define UI_IMAGE_ICON_SCALE_OFF       L"EFI\\OC\\Icons\\No_icon_scaling.png"
+
+
+#define UI_ICON_WIN                   L"EFI\\OC\\Icons\\os_win.icns"
+#define UI_ICON_WIN10                 L"EFI\\OC\\Icons\\os_win10.icns"
+#define UI_ICON_INSTALL               L"EFI\\OC\\Icons\\os_install.icns"
+#define UI_ICON_MAC                   L"EFI\\OC\\Icons\\os_mac.icns"
+#define UI_ICON_MAC_CATA              L"EFI\\OC\\Icons\\os_cata.icns"
+#define UI_ICON_MAC_MOJA              L"EFI\\OC\\Icons\\os_moja.icns"
+#define UI_ICON_MAC_RECOVERY          L"EFI\\OC\\Icons\\os_recovery.icns"
+#define UI_ICON_CLONE                 L"EFI\\OC\\Icons\\os_clone.icns"
+#define UI_ICON_FREEBSD               L"EFI\\OC\\Icons\\os_freebsd.icns"
+#define UI_ICON_LINUX                 L"EFI\\OC\\Icons\\os_linux.icns"
+#define UI_ICON_REDHAT                L"EFI\\OC\\Icons\\os_redhat.icns"
+#define UI_ICON_UBUNTU                L"EFI\\OC\\Icons\\os_ubuntu.icns"
+#define UI_ICON_FEDORA                L"EFI\\OC\\Icons\\os_fedora.icns"
+#define UI_ICON_CUSTOM                L"EFI\\OC\\Icons\\os_custom.icns"
+#define UI_ICON_SHELL                 L"EFI\\OC\\Icons\\tool_shell.icns"
+#define UI_ICON_RESETNVRAM            L"EFI\\OC\\Icons\\func_resetnvram.icns"
+#define UI_ICON_UNKNOWN               L"EFI\\OC\\Icons\\os_unknown.icns"
+
 /*========== Image ==========*/
 
 typedef struct _NDK_UI_IMAGE {
@@ -220,6 +257,34 @@ PrintLabel (
   IN UINTN           VisibleIndex,
   IN INTN            Xpos,
   IN INTN            Ypos
+  );
+
+BOOLEAN
+MouseInRect (
+  IN AREA_RECT     *Place
+  );
+
+BOOLEAN
+IsMouseInPlace (
+  IN INTN          Xpos,
+  IN INTN          Ypos,
+  IN INTN          AreaWidth,
+  IN INTN          AreaHeight
+  );
+
+VOID
+DrawPointer (
+  VOID
+  );
+
+VOID
+HidePointer (
+  VOID
+  );
+
+VOID
+RedrawPointer (
+  VOID
   );
 
 #endif /* OcSimpleBootMenuInternal_h */

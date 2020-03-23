@@ -149,7 +149,7 @@ EFI_GRAPHICS_OUTPUT_BLT_PIXEL *mBackgroundPixel = &mBlackPixel;
 STATIC
 BOOLEAN
 FileExist (
-  IN CHAR16                        *FilePath
+  IN CONST CHAR16                  *FilePath
   )
 {
   EFI_STATUS                       Status;
@@ -496,7 +496,7 @@ BltMenuImage (
 STATIC
 NDK_UI_IMAGE *
 DecodePNGFile (
-  IN CHAR16                        *FilePath
+  IN CONST CHAR16                  *FilePath
   )
 {
   EFI_STATUS                       Status;
@@ -733,7 +733,7 @@ CreateIcon (
   IN BOOLEAN              Dmg
   )
 {
-  CHAR16                 *FilePath;
+  CONST CHAR16           *FilePath;
   NDK_UI_IMAGE           *Icon;
   NDK_UI_IMAGE           *ScaledImage;
   INTN                   IconScale;
@@ -745,68 +745,68 @@ CreateIcon (
   switch (Type) {
     case OC_BOOT_WINDOWS:
       if (StrStr (Name, L"10") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_win10.icns";
+        FilePath = UI_ICON_WIN10;
       } else {
-        FilePath = L"EFI\\OC\\Icons\\os_win.icns";
+        FilePath = UI_ICON_WIN;
       }
       break;
     case OC_BOOT_APPLE_OS:
       if (StrStr (Name, L"Install") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_Install.icns";
+        FilePath = UI_ICON_INSTALL;
       } else if (StrStr (Name, L"Cata") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_cata.icns";
+        FilePath = UI_ICON_MAC_CATA;
       } else if (StrStr (Name, L"Moja") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_moja.icns";
+        FilePath = UI_ICON_MAC_MOJA;
       } else if (StrStr (Name, L"Clone") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_clone.icns";
+        FilePath = UI_ICON_CLONE;
       } else {
-        FilePath = L"EFI\\OC\\Icons\\os_mac.icns";
+        FilePath = UI_ICON_MAC;
       }
       break;
     case OC_BOOT_APPLE_RECOVERY:
-      FilePath = L"EFI\\OC\\Icons\\os_recovery.icns";
+      FilePath = UI_ICON_MAC_RECOVERY;
       break;
     case OC_BOOT_APPLE_TIME_MACHINE:
-      FilePath = L"EFI\\OC\\Icons\\os_clone.icns";
+      FilePath = UI_ICON_CLONE;
       break;
     case OC_BOOT_EXTERNAL_OS:
       if (StrStr (Name, L"Free") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_freebsd.icns";
+        FilePath = UI_ICON_FREEBSD;
       } else if (StrStr (Name, L"Linux") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_linux.icns";
+        FilePath = UI_ICON_LINUX;
       } else if (StrStr (Name, L"Redhat") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_redhat.icns";
+        FilePath = UI_ICON_REDHAT;
       } else if (StrStr (Name, L"Ubuntu") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_ubuntu.icns";
+        FilePath = UI_ICON_UBUNTU;
       } else if (StrStr (Name, L"Fedora") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_fedora.icns";
+        FilePath = UI_ICON_FEDORA;
       } else if (StrStr (Name, L"10") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_win10.icns";
+        FilePath = UI_ICON_WIN10;
       } else if (StrStr (Name, L"Win") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\os_win.icns";
+        FilePath = UI_ICON_WIN;
       } else {
-        FilePath = L"EFI\\OC\\Icons\\os_custom.icns";
+        FilePath = UI_ICON_CUSTOM;
       }
       break;
     case OC_BOOT_EXTERNAL_TOOL:
       if (StrStr (Name, L"Shell") != NULL) {
-        FilePath = L"EFI\\OC\\Icons\\tool_shell.icns";
+        FilePath = UI_ICON_SHELL;
       } else {
-          FilePath = L"EFI\\OC\\Icons\\os_custom.icns";
+          FilePath = UI_ICON_CUSTOM;
       }
       break;
     case OC_BOOT_APPLE_ANY:
-      FilePath = L"EFI\\OC\\Icons\\os_mac.icns";
+      FilePath = UI_ICON_MAC;
       break;
     case OC_BOOT_SYSTEM:
-      FilePath = L"EFI\\OC\\Icons\\func_resetnvram.icns";
+      FilePath = UI_ICON_RESETNVRAM;
       break;
     case OC_BOOT_UNKNOWN:
-      FilePath = L"EFI\\OC\\Icons\\os_unknown.icns";
+      FilePath = UI_ICON_UNKNOWN;
       break;
       
     default:
-      FilePath = L"EFI\\OC\\Icons\\os_unknown.icns";
+      FilePath = UI_ICON_UNKNOWN;
       break;
   }
   
@@ -1033,10 +1033,10 @@ ClearScreen (
 {
   NDK_UI_IMAGE                  *Image;
   
-  if (FileExist (L"EFI\\OC\\Icons\\Background4k.png") && mScreenHeight >= 2160) {
-    mBackgroundImage = DecodePNGFile (L"EFI\\OC\\Icons\\Background4k.png");
-  } else if (FileExist (L"EFI\\OC\\Icons\\Background.png")) {
-    mBackgroundImage = DecodePNGFile (L"EFI\\OC\\Icons\\Background.png");
+  if (FileExist (UI_IMAGE_BACKGROUND) && mScreenHeight >= 2160) {
+    mBackgroundImage = DecodePNGFile (UI_IMAGE_BACKGROUND);
+  } else if (FileExist (UI_IMAGE_BACKGROUND_ALT)) {
+    mBackgroundImage = DecodePNGFile (UI_IMAGE_BACKGROUND_ALT);
   }
   
   if (mBackgroundImage != NULL && (mBackgroundImage->Width != mScreenWidth || mBackgroundImage->Height != mScreenHeight)) {
@@ -1044,17 +1044,11 @@ ClearScreen (
   }
   
   if (mBackgroundImage == NULL) {
-    if (FileExist (L"EFI\\OC\\Icons\\background_color.png")) {
-      Image = DecodePNGFile (L"EFI\\OC\\Icons\\background_color.png");
+    if (FileExist (UI_IMAGE_BACKGROUND_COLOR)) {
+      Image = DecodePNGFile (UI_IMAGE_BACKGROUND_COLOR);
       if (Image != NULL) {
         CopyMem (mBackgroundPixel, &Image->Bitmap[0], sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
         mBackgroundPixel->Reserved = 0xff;
-      } else {
-        Image = DecodePNGFile (L"EFI\\OC\\Icons\\os_mac.icns");
-        if (Image != NULL) {
-          CopyMem (mBackgroundPixel, &Image->Bitmap[0], sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
-          mBackgroundPixel->Reserved = 0xff;
-        }
       }
       FreeImage (Image);
     }
@@ -1065,8 +1059,8 @@ ClearScreen (
     BltImage (mBackgroundImage, 0, 0);
   }
   
-  if (FileExist (L"EFI\\OC\\Icons\\font_color.png")) {
-    Image = DecodePNGFile (L"EFI\\OC\\Icons\\font_color.png");
+  if (FileExist (UI_IMAGE_FONT_COLOR)) {
+    Image = DecodePNGFile (UI_IMAGE_FONT_COLOR);
     if (Image != NULL) {
       CopyMem (mFontColorPixel, &Image->Bitmap[0], sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL));
       mFontColorPixel->Reserved = 0xff;
@@ -1074,26 +1068,26 @@ ClearScreen (
     }
   }
   
-  if (FileExist (L"EFI\\OC\\Icons\\No_alpha.png")) {
+  if (FileExist (UI_IMAGE_ALPHA_OFF)) {
     mAlphaEffect = FALSE;
-  } else if (FileExist (L"EFI\\OC\\Icons\\No_selector.png")) {
+  } else if (FileExist (UI_IMAGE_SELECTOR_OFF)) {
     mSelectorUsed = FALSE;
   }
   
-  if (mSelectorUsed && FileExist (L"EFI\\OC\\Icons\\Selector4k.png") && mScreenHeight >= 2160) {
-    mSelectionImage = DecodePNGFile (L"EFI\\OC\\Icons\\Selector4k.png");
-  } else if (mSelectorUsed && FileExist (L"EFI\\OC\\Icons\\Selector.png")) {
-    mSelectionImage = DecodePNGFile (L"EFI\\OC\\Icons\\Selector.png");
+  if (mSelectorUsed && FileExist (UI_IMAGE_SELECTOR) && mScreenHeight >= 2160) {
+    mSelectionImage = DecodePNGFile (UI_IMAGE_SELECTOR);
+  } else if (mSelectorUsed && FileExist (UI_IMAGE_SELECTOR_ALT)) {
+    mSelectionImage = DecodePNGFile (UI_IMAGE_SELECTOR_ALT);
   } else {
     mSelectionImage = CreateFilledImage (mIconSpaceSize, mIconSpaceSize, FALSE, mFontColorPixel);
   }
   
-  if (FileExist (L"EFI\\OC\\Icons\\No_label.png")) {
+  if (FileExist (UI_IMAGE_LABEL_OFF)) {
     mPrintLabel = FALSE;
   }
   
-  if (FileExist (L"EFI\\OC\\Icons\\Label.png")) {
-    mLabelImage = DecodePNGFile (L"EFI\\OC\\Icons\\Label.png");
+  if (FileExist (UI_IMAGE_LABEL)) {
+    mLabelImage = DecodePNGFile (UI_IMAGE_LABEL);
   } else {
     mLabelImage = CreateFilledImage (mIconSpaceSize, 32, TRUE, &mTransparentPixel);
   }
@@ -1182,8 +1176,8 @@ InitScreen (
   }
   DEBUG ((DEBUG_INFO, "OCUI: Initialize Graphic Screen...%r\n", Status));
   
-  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_text_scaling.png"))) ? 32 : 16;
-  if (mUiScale == 0 && mScreenHeight >= 2160 && !(FileExist (L"EFI\\OC\\Icons\\No_icon_scaling.png"))) {
+  mTextScale = (mTextScale == 0 && mScreenHeight >= 2160 && !(FileExist (UI_IMAGE_TEXT_SCALE_OFF))) ? 32 : 16;
+  if (mUiScale == 0 && mScreenHeight >= 2160 && !(FileExist (UI_IMAGE_ICON_SCALE_OFF))) {
     mUiScale = 32;
     mIconPaddingSize = 16;
     mIconSpaceSize = 288;
@@ -1222,8 +1216,8 @@ LoadFontImage (
   
   NewImage = NULL;
   
-  if (FileExist (L"EFI\\OC\\Icons\\font.png")) {
-    NewImage = DecodePNGFile (L"EFI\\OC\\Icons\\font.png");
+  if (FileExist (UI_IMAGE_FONT)) {
+    NewImage = DecodePNGFile (UI_IMAGE_FONT);
   } else {
     NewImage = DecodePNG ((VOID *) &emb_font_data, (UINT32) emb_font_data_size);
   }
@@ -1499,6 +1493,7 @@ PrintTextGraphicXY (
 {
   NDK_UI_IMAGE                        *TextImage;
   NDK_UI_IMAGE                        *NewImage;
+  BOOLEAN                             PointerInArea;
 
   NewImage = NULL;
   
@@ -1519,7 +1514,17 @@ PrintTextGraphicXY (
     Ypos = mScreenHeight - (TextImage->Height + 5);
   }
   
+  PointerInArea = IsMouseInPlace (Xpos, Ypos, TextImage->Width, TextImage->Height);
+  
+  if (PointerInArea) {
+    HidePointer ();
+  }
+  
   BltImageAlpha (TextImage, Xpos, Ypos, &mTransparentPixel, 16);
+  
+  if (PointerInArea) {
+    DrawPointer ();
+  }
 }
 //
 //     Text rendering end
@@ -1613,27 +1618,30 @@ PrintDateTime (
   CHAR16             TimeStr[12];
   UINTN              Hour;
   CHAR16             *Str;
+  INTN               Width;
   
   Str = NULL;
   Hour = 0;
-  Status = gRT->GetTime (&DateTime, NULL);
-  if (EFI_ERROR (Status)) {
-    ZeroMem (&DateTime, sizeof (DateTime));
-  }
   
-  if (!EFI_ERROR (Status) && ShowAll) {
+  if (ShowAll) {
+    Status = gRT->GetTime (&DateTime, NULL);
+    if (EFI_ERROR (Status)) {
+      ZeroMem (&DateTime, sizeof (DateTime));
+    }
     Hour = (UINTN) DateTime.Hour;
     Str = Hour >= 12 ? L"PM" : L"AM";
     if (Hour > 12) {
       Hour = Hour - 12;
     }
-    ClearScreenArea (&mTransparentPixel, 0, 0, mScreenWidth, mFontHeight * 5);
     UnicodeSPrint (DateStr, sizeof (DateStr), L" %02u/%02u/%04u", DateTime.Month, DateTime.Day, DateTime.Year);
     UnicodeSPrint (TimeStr, sizeof (TimeStr), L" %02u:%02u:%02u%s", Hour, DateTime.Minute, DateTime.Second, Str);
+    
+    Width = (((StrLen (DateStr) + 1) * (INTN) CHAR_WIDTH) * mTextScale) >> 4;
+    ClearScreenArea (&mTransparentPixel, mScreenWidth - Width, 0, mScreenWidth / 5, mFontHeight * 5);
     PrintTextGraphicXY (DateStr, mScreenWidth, 5);
     PrintTextGraphicXY (TimeStr, mScreenWidth, (mTextScale == 16) ? (mFontHeight + 5 + 2) : ((mFontHeight * 2) + 5 + 2));
   } else {
-    ClearScreenArea (&mTransparentPixel, 0, 0, mScreenWidth, mFontHeight * 5);
+    ClearScreenArea (&mTransparentPixel, mScreenWidth - (mScreenWidth / 5), 0, mScreenWidth / 5, mFontHeight * 5);
   }
 }
 
@@ -1753,7 +1761,6 @@ PrintTextDescription (
 
 /* Mouse Functions Begin */
 
-STATIC
 VOID
 HidePointer (
   VOID
@@ -1764,7 +1771,6 @@ HidePointer (
   }
 }
 
-STATIC
 VOID
 DrawPointer (
   VOID
@@ -1805,7 +1811,6 @@ DrawPointer (
                  );
 }
 
-STATIC
 VOID
 RedrawPointer (
   VOID
@@ -1825,7 +1830,7 @@ InitMouse (
   )
 {
   EFI_STATUS          Status;
-  CHAR16              *FilePath;
+  CONST CHAR16        *FilePath;
   
   Status = EFI_UNSUPPORTED;
   
@@ -1849,9 +1854,9 @@ InitMouse (
   }
   
   if (mUiScale == 28 || mScreenHeight >= 2160) {
-    FilePath = L"EFI\\OC\\Icons\\pointer4k.png";
+    FilePath = UI_IMAGE_POINTER;
   } else {
-    FilePath = L"EFI\\OC\\Icons\\pointer.png";
+    FilePath = UI_IMAGE_POINTER_ALT;
   }
   
   if (FileExist (FilePath)) {
@@ -1949,7 +1954,6 @@ PointerUpdate (
   }
 }
 
-STATIC
 BOOLEAN
 MouseInRect (
   IN AREA_RECT     *Place
@@ -1960,6 +1964,24 @@ MouseInRect (
            && (mPointer.NewPlace.Ypos >= Place->Ypos)
            && (mPointer.NewPlace.Ypos < (Place->Ypos + (INTN) Place->Height) + (32 * mUiScale >> 4) + 10)
            );
+}
+
+BOOLEAN
+IsMouseInPlace (
+  IN INTN          Xpos,
+  IN INTN          Ypos,
+  IN INTN          AreaWidth,
+  IN INTN          AreaHeight
+  )
+{
+  AREA_RECT        Place;
+  
+  Place.Xpos = Xpos;
+  Place.Ypos = Ypos;
+  Place.Width = AreaWidth;
+  Place.Height = AreaHeight;
+  
+  return  MouseInRect (&Place);
 }
 
 STATIC
@@ -2576,15 +2598,11 @@ OcShowSimpleBootMenu (
       }
 
       if (!TimeoutExpired) {
-        HidePointer ();
         PrintDateTime (ShowAll);
         TimeoutExpired = PrintTimeOutMessage (TimeOutSeconds);
         TimeOutSeconds = TimeoutExpired ? 10000 : TimeOutSeconds;
-        DrawPointer ();
       } else {
-        HidePointer ();
         PrintDateTime (ShowAll);
-        DrawPointer ();
       }
     }
   }
