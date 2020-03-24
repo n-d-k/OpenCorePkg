@@ -50,7 +50,6 @@
 #define UI_IMAGE_SELECTOR_OFF         L"EFI\\OC\\Icons\\no_selector.png"
 #define UI_IMAGE_LABEL                L"EFI\\OC\\Icons\\label.png"
 #define UI_IMAGE_LABEL_OFF            L"EFI\\OC\\Icons\\no_label.png"
-#define UI_IMAGE_ALPHA_OFF            L"EFI\\OC\\Icons\\no_alpha.png"
 #define UI_IMAGE_TEXT_SCALE_OFF       L"EFI\\OC\\Icons\\No_text_scaling.png"
 #define UI_IMAGE_ICON_SCALE_OFF       L"EFI\\OC\\Icons\\No_icon_scaling.png"
 
@@ -124,8 +123,8 @@ typedef struct _pointers {
 
 /*================ ImageSupport.c =============*/
 
-#define ICON_OPACITY_LEVEL  240
-#define ICON_OPACITY_FULL   0
+#define ICON_BRIGHTNESS_LEVEL   80
+#define ICON_BRIGHTNESS_FULL    0
 
 NDK_UI_IMAGE *
 CreateImage (
@@ -224,6 +223,19 @@ RawComposeAlpha (
   IN     INTN                          CompLineOffset,
   IN     INTN                          TopLineOffset,
   IN     INTN                          Opacity
+  );
+//
+// ColorDiff is adjustable color saturation level to Top Image which can be set from -255 to 255, 0 = no adjustment.
+//
+VOID
+RawComposeColor (
+  IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompBasePtr,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopBasePtr,
+  IN     INTN                          Width,
+  IN     INTN                          Height,
+  IN     INTN                          CompLineOffset,
+  IN     INTN                          TopLineOffset,
+  IN     INTN                          ColorDiff
   );
 
 VOID

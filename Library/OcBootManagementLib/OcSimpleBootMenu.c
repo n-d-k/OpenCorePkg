@@ -127,9 +127,6 @@ mPrintLabel = TRUE;
 BOOLEAN
 mSelectorUsed = TRUE;
 
-BOOLEAN
-mAlphaEffect = TRUE;
-
 /*=========== Default colors settings ==============*/
 
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL mTransparentPixel  = {0x00, 0x00, 0x00, 0x00};
@@ -480,13 +477,13 @@ BltMenuImage (
            mBackgroundImage->Width
            );
   
-  RawComposeAlpha (NewImage->Bitmap,
+  RawComposeColor (NewImage->Bitmap,
                    Image->Bitmap,
                    NewImage->Width,
                    NewImage->Height,
                    NewImage->Width,
                    Image->Width,
-                   mAlphaEffect ? ICON_OPACITY_LEVEL : ICON_OPACITY_FULL
+                   ICON_BRIGHTNESS_FULL
                    );
   
   DrawImageArea (NewImage, 0, 0, 0, 0, Xpos, Ypos);
@@ -940,13 +937,13 @@ SwitchIconSelection (
              );
   }
   
-  RawComposeAlpha (NewImage->Bitmap + ((Selected && !Clicked) ? mIconPaddingSize : mIconPaddingSize + AnimatedDistance) * NewImage->Width + mIconPaddingSize,
+  RawComposeColor (NewImage->Bitmap + ((Selected && !Clicked) ? mIconPaddingSize : mIconPaddingSize + AnimatedDistance) * NewImage->Width + mIconPaddingSize,
                    Icon->Bitmap,
                    Icon->Width,
                    Icon->Height,
                    NewImage->Width,
                    Icon->Width,
-                   (!Selected && mAlphaEffect) ? ICON_OPACITY_LEVEL : ICON_OPACITY_FULL
+                   !Selected ? ICON_BRIGHTNESS_FULL : ICON_BRIGHTNESS_LEVEL
                    );
   
   FreeImage (Icon);
@@ -1068,9 +1065,7 @@ ClearScreen (
     }
   }
   
-  if (FileExist (UI_IMAGE_ALPHA_OFF)) {
-    mAlphaEffect = FALSE;
-  } else if (FileExist (UI_IMAGE_SELECTOR_OFF)) {
+  if (FileExist (UI_IMAGE_SELECTOR_OFF)) {
     mSelectorUsed = FALSE;
   }
   

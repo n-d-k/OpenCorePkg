@@ -318,6 +318,81 @@ RawComposeAlpha (
 }
 
 VOID
+RawComposeColor (
+  IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *CompBasePtr,
+  IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *TopBasePtr,
+  IN     INTN                          Width,
+  IN     INTN                          Height,
+  IN     INTN                          CompLineOffset,
+  IN     INTN                          TopLineOffset,
+  IN     INTN                          ColorDiff
+  )
+{
+  INT64                                X;
+  INT64                                Y;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *TopPtr;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *CompPtr;
+  INTN                                 TopAlpha;
+  INTN                                 Alpha;
+  INTN                                 CompAlpha;
+  INTN                                 RevAlpha;
+  INTN                                 TempAlpha;
+  INTN                                 TempColor;
+  INTN                                 Base;
+
+  if (CompBasePtr == NULL || TopBasePtr == NULL) {
+    return;
+  }
+  
+  if (ColorDiff == 0) {
+    RawCompose (CompBasePtr,
+                TopBasePtr,
+                Width,
+                Height,
+                CompLineOffset,
+                TopLineOffset
+                );
+    return;
+  } else if (ColorDiff > 0) {
+    Base = 255;
+  } else {
+    Base = 0;
+  }
+  
+  for (Y = 0; Y < Height; ++Y) {
+    TopPtr = TopBasePtr;
+    CompPtr = CompBasePtr;
+    for (X = 0; X < Width; ++X) {
+      TopAlpha = TopPtr->Reserved & 0xFF;
+      if (TopAlpha == 255) {
+        TempColor = Base == 0 ? TopPtr->Blue + (TopPtr->Blue * ColorDiff / 255) : MIN (TopPtr->Blue + (TopPtr->Blue * ColorDiff / 255), Base);
+        CompPtr->Blue  = (UINT8) TempColor;
+        TempColor = Base == 0 ? TopPtr->Green + (TopPtr->Green * ColorDiff / 255) : MIN (TopPtr->Green + (TopPtr->Green * ColorDiff / 255), Base);
+        CompPtr->Green = (UINT8) TempColor;
+        TempColor = Base == 0 ? TopPtr->Red + (TopPtr->Red * ColorDiff / 255) : MIN (TopPtr->Red + (TopPtr->Red * ColorDiff / 255), Base);
+        CompPtr->Red   = (UINT8) TempColor;
+        CompPtr->Reserved = (UINT8) TopAlpha;
+      } else if (TopAlpha != 0) {
+        CompAlpha = CompPtr->Reserved & 0xFF;
+        RevAlpha = 255 - TopAlpha;
+        TempAlpha = CompAlpha * RevAlpha;
+        TopAlpha *= 255;
+        Alpha = TopAlpha + TempAlpha;
+
+        CompPtr->Blue = (UINT8) ((Base == 0 ? TopPtr->Blue + (TopPtr->Blue * ColorDiff / 255) : MIN (TopPtr->Blue + (TopPtr->Blue * ColorDiff / 255), Base) * TopAlpha + CompPtr->Blue * TempAlpha) / Alpha);
+        CompPtr->Green = (UINT8) ((Base == 0 ? TopPtr->Green + (TopPtr->Green * ColorDiff / 255) : MIN (TopPtr->Green + (TopPtr->Green * ColorDiff / 255), Base) * TopAlpha + CompPtr->Green * TempAlpha) / Alpha);
+        CompPtr->Red = (UINT8) ((Base == 0 ? TopPtr->Red + (TopPtr->Red * ColorDiff / 255) : MIN (TopPtr->Red + (TopPtr->Red * ColorDiff / 255), Base) * TopAlpha + CompPtr->Red * TempAlpha) / Alpha);
+        CompPtr->Reserved = (UINT8) (Alpha / 255);
+      }
+      TopPtr++;
+      CompPtr++;
+    }
+    TopBasePtr += TopLineOffset;
+    CompBasePtr += CompLineOffset;
+  }
+}
+
+VOID
 FillImage (
   IN OUT NDK_UI_IMAGE                  *Image,
   IN     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *Color
