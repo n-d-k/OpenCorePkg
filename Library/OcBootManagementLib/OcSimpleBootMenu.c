@@ -150,53 +150,25 @@ FileExist (
   )
 {
   EFI_STATUS                       Status;
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
-  VOID                             *Buffer;
-  UINT32                           BufferSize;
-  EFI_HANDLE                       *Handles;
-  UINTN                            HandleCount;
-  UINTN                            Index;
-
-  BufferSize = 0;
-  HandleCount = 0;
-  FileSystem = NULL;
-  Buffer = NULL;
+  EFI_FILE_HANDLE                  Volume;
+  EFI_FILE_PROTOCOL                *File;
   
-  if (mFileSystem == NULL) {
-    Status = gBS->LocateHandleBuffer(ByProtocol, &gEfiPartTypeSystemPartGuid, NULL, &HandleCount, &Handles);
-    if (!EFI_ERROR (Status) && HandleCount > 0) {
-      for (Index = 0; Index < HandleCount; ++Index) {
-        Status = gBS->HandleProtocol (
-                        Handles[Index],
-                        &gEfiSimpleFileSystemProtocolGuid,
-                        (VOID **) &FileSystem
-                        );
-        if (EFI_ERROR (Status)) {
-          FileSystem = NULL;
-          continue;
-        }
-        
-        Buffer = ReadFile (FileSystem, FilePath, &BufferSize, BASE_16MB);
-        if (Buffer != NULL) {
-          mFileSystem = FileSystem;
-          DEBUG ((DEBUG_INFO, "OCUI: FileSystem found!  Handle(%d) \n", Index));
-          break;
-        }
-        FileSystem = NULL;
-      }
-      
-      if (Handles != NULL) {
-        FreePool (Handles);
-      }
+  ASSERT (FilePath != NULL);
+  ASSERT (StrLen (FilePath) > 0);
+  
+  if (mFileSystem != NULL) {
+    Status = mFileSystem->OpenVolume (mFileSystem, &Volume);
+    if (EFI_ERROR (Status)) {
+      return FALSE;
     }
     
-  } else {
-    Buffer = ReadFile (mFileSystem, FilePath, &BufferSize, BASE_16MB);
-  }
-  
-  if (Buffer != NULL) {
-    FreePool (Buffer);
-    return TRUE;
+    Status = SafeFileOpen (Volume, &File, (CHAR16 *) FilePath, EFI_FILE_MODE_READ, 0);
+    Volume->Close (Volume);
+    
+    if (!EFI_ERROR (Status)) {
+      File->Close (File);
+      return TRUE;
+    }
   }
   return FALSE;
 }
