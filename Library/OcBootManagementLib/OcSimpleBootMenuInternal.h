@@ -40,6 +40,7 @@
 
 #define UI_IMAGE_POINTER              L"EFI\\OC\\Icons\\pointer4k.png"
 #define UI_IMAGE_POINTER_ALT          L"EFI\\OC\\Icons\\pointer.png"
+#define UI_IMAGE_POINTER_HAND         L"EFI\\OC\\Icons\\pointeralt.png"
 #define UI_IMAGE_FONT                 L"EFI\\OC\\Icons\\font.png"
 #define UI_IMAGE_FONT_COLOR           L"EFI\\OC\\Icons\\font_color.png"
 #define UI_IMAGE_BACKGROUND           L"EFI\\OC\\Icons\\background4k.png"
@@ -48,6 +49,7 @@
 #define UI_IMAGE_SELECTOR             L"EFI\\OC\\Icons\\selector4k.png"
 #define UI_IMAGE_SELECTOR_ALT         L"EFI\\OC\\Icons\\selector.png"
 #define UI_IMAGE_SELECTOR_OFF         L"EFI\\OC\\Icons\\no_selector.png"
+#define UI_IMAGE_SELECTOR_FUNC        L"EFI\\OC\\Icons\\func_selector.png"
 #define UI_IMAGE_LABEL                L"EFI\\OC\\Icons\\label.png"
 #define UI_IMAGE_LABEL_OFF            L"EFI\\OC\\Icons\\no_label.png"
 #define UI_IMAGE_TEXT_SCALE_OFF       L"EFI\\OC\\Icons\\No_text_scaling.png"
@@ -67,12 +69,28 @@
 #define UI_ICON_REDHAT                L"EFI\\OC\\Icons\\os_redhat.icns"
 #define UI_ICON_UBUNTU                L"EFI\\OC\\Icons\\os_ubuntu.icns"
 #define UI_ICON_FEDORA                L"EFI\\OC\\Icons\\os_fedora.icns"
+#define UI_ICON_DEBIAN                L"EFI\\OC\\Icons\\os_debian.icns"
+#define UI_ICON_ARCH                  L"EFI\\OC\\Icons\\os_arch.icns"
+#define UI_ICON_UBUNTU                L"EFI\\OC\\Icons\\os_ubuntu.icns"
 #define UI_ICON_CUSTOM                L"EFI\\OC\\Icons\\os_custom.icns"
 #define UI_ICON_SHELL                 L"EFI\\OC\\Icons\\tool_shell.icns"
 #define UI_ICON_RESETNVRAM            L"EFI\\OC\\Icons\\func_resetnvram.icns"
+#define UI_ICON_RESET                 L"EFI\\OC\\Icons\\func_reset.icns"
+#define UI_ICON_SHUTDOWN              L"EFI\\OC\\Icons\\func_shutdown.icns"
 #define UI_ICON_UNKNOWN               L"EFI\\OC\\Icons\\os_unknown.icns"
 
+#define UI_MENU_SYSTEM_RESET          L"Restart"
+#define UI_MENU_SYSTEM_SHUTDOWN       L"Shutdown"
+#define UI_INPUT_SYSTEM_RESET         99
+#define UI_INPUT_SYSTEM_SHUTDOWN      100
+
 /*========== Image ==========*/
+
+typedef
+VOID
+(*NDK_ICON_ACTION)(
+  IN EFI_RESET_TYPE               ResetType
+  );
 
 typedef struct _NDK_UI_IMAGE {
   UINT16                          Width;
@@ -80,6 +98,15 @@ typedef struct _NDK_UI_IMAGE {
   BOOLEAN                         IsAlpha;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL   *Bitmap;
 } NDK_UI_IMAGE;
+
+typedef struct _NDK_UI_ICON {
+  INTN                            Xpos;
+  INTN                            Ypos;
+  BOOLEAN                         IsSelected;
+  NDK_ICON_ACTION                 Action;
+  NDK_UI_IMAGE                    *Image;
+  NDK_UI_IMAGE                    *Selector;
+} NDK_UI_ICON;
 
 /*========== Pointer ==========*/
 
@@ -109,16 +136,18 @@ typedef struct {
 
 typedef struct _pointers {
   EFI_SIMPLE_POINTER_PROTOCOL *SimplePointerProtocol;
-  NDK_UI_IMAGE *Pointer;
-  NDK_UI_IMAGE *NewImage;
-  NDK_UI_IMAGE *OldImage;
+  NDK_UI_IMAGE                *Pointer;
+  NDK_UI_IMAGE                *PointerAlt;
+  NDK_UI_IMAGE                *NewImage;
+  NDK_UI_IMAGE                *OldImage;
   
-  AREA_RECT  NewPlace;
-  AREA_RECT  OldPlace;
+  AREA_RECT                   NewPlace;
+  AREA_RECT                   OldPlace;
   
-  UINT64  LastClickTime;
-  EFI_SIMPLE_POINTER_STATE State;
-  MOUSE_EVENT MouseEvent;
+  BOOLEAN                     IsClickable;
+  UINT64                      LastClickTime;
+  EFI_SIMPLE_POINTER_STATE    State;
+  MOUSE_EVENT                 MouseEvent;
 } POINTERS;
 
 /*================ ImageSupport.c =============*/
@@ -297,6 +326,11 @@ HidePointer (
 VOID
 RedrawPointer (
   VOID
+  );
+
+VOID
+SystemReset (
+  IN EFI_RESET_TYPE         ResetType
   );
 
 #endif /* OcSimpleBootMenuInternal_h */

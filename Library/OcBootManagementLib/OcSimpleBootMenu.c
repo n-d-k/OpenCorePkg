@@ -33,9 +33,9 @@ mMenuIconsCount;
 
 /*========= Pointer Setting ============*/
 
-POINTERS mPointer = {NULL, NULL, NULL, NULL,
+POINTERS mPointer = {NULL, NULL, NULL, NULL, NULL,
 {0, 0, POINTER_WIDTH, POINTER_HEIGHT},
-{0, 0, POINTER_WIDTH, POINTER_HEIGHT}, 0,
+{0, 0, POINTER_WIDTH, POINTER_HEIGHT}, FALSE, 0,
 {0, 0, 0, FALSE, FALSE}, NoEvents};
 
 STATIC
@@ -112,6 +112,14 @@ mBackgroundImage = NULL;
 STATIC
 NDK_UI_IMAGE *
 mMenuImage = NULL;
+
+STATIC
+NDK_UI_ICON
+mIconReset = {0, 0, FALSE, NULL, NULL, NULL};
+
+STATIC
+NDK_UI_ICON
+mIconShutdown = {0, 0, FALSE, NULL, NULL, NULL};
 
 STATIC
 NDK_UI_IMAGE *
@@ -468,55 +476,22 @@ DecodePNGFile (
   IN CONST CHAR16                  *FilePath
   )
 {
-  EFI_STATUS                       Status;
-  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
   VOID                             *Buffer;
   UINT32                           BufferSize;
-  EFI_HANDLE                       *Handles;
-  UINTN                            HandleCount;
-  UINTN                            Index;
-
-  BufferSize = 0;
-  HandleCount = 0;
-  FileSystem = NULL;
-  Buffer = NULL;
   
-  if (mFileSystem == NULL) {
-    Status = gBS->LocateHandleBuffer(ByProtocol, &gEfiPartTypeSystemPartGuid, NULL, &HandleCount, &Handles);
-    if (!EFI_ERROR (Status) && HandleCount > 0) {
-      for (Index = 0; Index < HandleCount; ++Index) {
-        Status = gBS->HandleProtocol (
-                        Handles[Index],
-                        &gEfiSimpleFileSystemProtocolGuid,
-                        (VOID **) &FileSystem
-                        );
-        if (EFI_ERROR (Status)) {
-          FileSystem = NULL;
-          continue;
-        }
-        
-        Buffer = ReadFile (FileSystem, FilePath, &BufferSize, BASE_16MB);
-        if (Buffer != NULL) {
-          mFileSystem = FileSystem;
-          DEBUG ((DEBUG_INFO, "OCUI: FileSystem found!  Handle(%d) \n", Index));
-          break;
-        }
-        FileSystem = NULL;
-      }
-      
-      if (Handles != NULL) {
-        FreePool (Handles);
-      }
-    }
-    
-  } else {
-    Buffer = ReadFile (mFileSystem, FilePath, &BufferSize, BASE_16MB);
-  }
+  Buffer = NULL;
+  BufferSize = 0;
+  
+  ASSERT (FilePath != NULL);
+  ASSERT (StrLen (FilePath) > 0);
+  
+  Buffer = ReadFile (mFileSystem, FilePath, &BufferSize, BASE_16MB);
   
   if (Buffer == NULL) {
     DEBUG ((DEBUG_ERROR, "OCUI: Failed to locate %s file\n", FilePath));
     return NULL;
   }
+  
   return DecodePNG (Buffer, BufferSize);
 }
 
@@ -747,6 +722,10 @@ CreateIcon (
         FilePath = UI_ICON_REDHAT;
       } else if (StrStr (Name, L"Ubuntu") != NULL) {
         FilePath = UI_ICON_UBUNTU;
+      } else if (StrStr (Name, L"Debian") != NULL) {
+        FilePath = UI_ICON_DEBIAN;
+      } else if (StrStr (Name, L"Arch") != NULL) {
+        FilePath = UI_ICON_ARCH;
       } else if (StrStr (Name, L"Fedora") != NULL) {
         FilePath = UI_ICON_FEDORA;
       } else if (StrStr (Name, L"10") != NULL) {
@@ -1765,7 +1744,7 @@ DrawPointer (
            );
 
   RawCompose (mPointer.NewImage->Bitmap,
-              mPointer.Pointer->Bitmap,
+              mPointer.IsClickable ? mPointer.PointerAlt->Bitmap : mPointer.Pointer->Bitmap,
               mPointer.NewImage->Width,
               mPointer.NewImage->Height,
               mPointer.NewImage->Width,
@@ -1834,6 +1813,12 @@ InitMouse (
     mPointer.Pointer = DecodePNGFile (FilePath);
   } else {
     mPointer.Pointer = CreateFilledImage (POINTER_WIDTH, POINTER_HEIGHT, TRUE, &mBluePixel);
+  }
+  
+  if (FileExist (UI_IMAGE_POINTER_HAND)) {
+    mPointer.PointerAlt = DecodePNGFile (UI_IMAGE_POINTER_HAND);
+  } else {
+    mPointer.PointerAlt = CreateFilledImage (POINTER_WIDTH, POINTER_HEIGHT, TRUE, &mBluePixel);
   }
   
   if(mPointer.Pointer == NULL) {
@@ -1955,6 +1940,135 @@ IsMouseInPlace (
   return  MouseInRect (&Place);
 }
 
+VOID
+CreateToolBar (
+  IN BOOLEAN          Initialize
+  )
+{
+  NDK_UI_IMAGE        *LabelImage;
+  NDK_UI_IMAGE        *Icon;
+  INTN                IconScale;
+  INTN                Offset;
+  
+  IconScale = 16;
+  if (mScreenHeight < 2160) {
+    IconScale = 8;
+  } else if (mScreenHeight <= 800) {
+    IconScale = 4;
+  }
+  
+  if (Initialize) {
+    if (mIconReset.Image == NULL && FileExist (UI_ICON_RESET)) {
+      Icon = DecodePNGFile (UI_ICON_RESET);
+      mIconReset.Image = CopyScaledImage (Icon,IconScale);
+      FreeImage (Icon);
+    } else {
+      mIconReset.Image = CreateFilledImage (80, 80, TRUE, &mBluePixel);
+    }
+    
+    if (mIconReset.Selector == NULL && FileExist (UI_IMAGE_SELECTOR_FUNC)) {
+      Icon = DecodePNGFile (UI_IMAGE_SELECTOR_FUNC);
+      mIconReset.Selector = CopyScaledImage (Icon, IconScale);
+      FreeImage (Icon);
+    } else {
+      mIconReset.Selector = mIconReset.Image;
+    }
+    
+    if (mIconShutdown.Image == NULL && FileExist (UI_ICON_SHUTDOWN)) {
+      Icon = DecodePNGFile (UI_ICON_SHUTDOWN);
+      mIconShutdown.Image = CopyScaledImage (Icon, IconScale);
+      FreeImage (Icon);
+    } else {
+      mIconShutdown.Image = mIconReset.Image;
+    }
+    
+    mIconReset.Xpos = mScreenWidth / 2 - (mIconReset.Image->Width + (mIconReset.Image->Width >> 2));
+    mIconReset.Ypos = mScreenHeight - (mIconReset.Image->Width * 2);
+    mIconReset.Action = SystemReset;
+    
+    mIconShutdown.Xpos = mScreenWidth / 2 + (mIconShutdown.Image->Width >> 2);
+    mIconShutdown.Ypos = mIconReset.Ypos;
+    mIconShutdown.Action = SystemReset;
+  }
+
+  BltMenuImage (mIconReset.Image, mIconReset.Xpos, mIconReset.Ypos);
+  BltMenuImage (mIconShutdown.Image, mIconShutdown.Xpos, mIconShutdown.Ypos);
+  LabelImage = CreateTextImage (UI_MENU_SYSTEM_RESET);
+  Offset = (mIconReset.Image->Width - LabelImage->Width) >> 1;
+  BltImageAlpha (LabelImage,
+                 mIconReset.Xpos + (Offset < 0 ? (-Offset) : Offset),
+                 mIconReset.Ypos + mIconReset.Image->Height - IconScale,
+                 &mTransparentPixel,
+                 16
+                 );
+  
+  LabelImage = CreateTextImage (UI_MENU_SYSTEM_SHUTDOWN);
+  Offset = (mIconShutdown.Image->Width - LabelImage->Width) >> 1;
+  BltImageAlpha (LabelImage,
+                 mIconShutdown.Xpos + (Offset < 0 ? (-Offset) : Offset),
+                 mIconShutdown.Ypos + mIconShutdown.Image->Height - IconScale,
+                 &mTransparentPixel,
+                 16
+                 );
+}
+
+VOID
+FreeToolBar (
+  VOID
+  )
+{
+  FreeImage (mIconReset.Image);
+  mIconReset.Image = NULL;
+  mIconReset.IsSelected = FALSE;
+  FreeImage (mIconReset.Selector);
+  mIconReset.Selector = NULL;
+  mIconReset.Action = NULL;
+  FreeImage (mIconShutdown.Image);
+  mIconShutdown.IsSelected = FALSE;
+  mIconShutdown.Image = NULL;
+  mIconShutdown.Action = NULL;
+}
+
+VOID
+SelectResetFunc (
+  VOID
+  )
+{
+  NDK_UI_IMAGE        *NewImage;
+  
+  HidePointer ();
+  CreateToolBar (FALSE);
+  if (!mIconReset.IsSelected && !mIconShutdown.IsSelected) {
+    DrawPointer ();
+    return;
+  }
+  
+  NewImage = CreateImage (mIconReset.Image->Width, mIconReset.Image->Height, FALSE);
+  
+  if (mIconReset.IsSelected) {
+    TakeImage (NewImage, mIconReset.Xpos, mIconReset.Ypos, NewImage->Width, NewImage->Height);
+  } else if (mIconShutdown.IsSelected) {
+    TakeImage (NewImage, mIconShutdown.Xpos, mIconShutdown.Ypos, NewImage->Width, NewImage->Height);
+  }
+  
+  RawCompose (NewImage->Bitmap,
+              mIconReset.Selector->Bitmap,
+              NewImage->Width,
+              NewImage->Height,
+              NewImage->Width,
+              mIconReset.Selector->Width
+              );
+  
+  if (mIconReset.IsSelected) {
+    BltImage (NewImage, mIconReset.Xpos, mIconReset.Ypos);
+  } else if (mIconShutdown.IsSelected) {
+    BltImage (NewImage, mIconShutdown.Xpos, mIconShutdown.Ypos);
+  }
+  
+  FreeImage (NewImage);
+  DrawPointer ();
+}
+
 STATIC
 INTN
 CheckIconClick (
@@ -1986,11 +2100,13 @@ CheckIconClick (
   Ypos = (mScreenHeight / 2) - mIconSpaceSize;
   NewXpos = Xpos;
   NewYpos = Ypos;
+  mPointer.IsClickable = FALSE;
   
   for (Index = 0; Index < mMenuIconsCount; ++Index) {
     Place.Xpos = NewXpos;
     Place.Ypos = NewYpos;
     if (MouseInRect (&Place)) {
+      mPointer.IsClickable = TRUE;
       Result = (INTN) Index;
       break;
     }
@@ -1999,6 +2115,40 @@ CheckIconClick (
       NewXpos = Xpos;
       NewYpos = Ypos + mIconSpaceSize + (32 * mUiScale >> 4) + 10;
     }
+  }
+  
+  Place.Width = mIconReset.Image->Width;
+  Place.Height = mIconReset.Image->Width;
+  Place.Xpos = mIconReset.Xpos;
+  Place.Ypos = mIconReset.Ypos;
+  
+  if (MouseInRect (&Place)) {
+    mPointer.IsClickable = TRUE;
+    if (!mIconReset.IsSelected) {
+      mIconReset.IsSelected = TRUE;
+      mIconShutdown.IsSelected = FALSE;
+      SelectResetFunc ();
+    }
+    Result = UI_INPUT_SYSTEM_RESET;
+  }
+  
+  Place.Xpos = mIconShutdown.Xpos;
+  Place.Ypos = mIconShutdown.Ypos;
+  
+  if (MouseInRect (&Place)) {
+    mPointer.IsClickable = TRUE;
+    if (!mIconShutdown.IsSelected) {
+      mIconShutdown.IsSelected = TRUE;
+      mIconReset.IsSelected = FALSE;
+      SelectResetFunc ();
+    }
+    Result = UI_INPUT_SYSTEM_SHUTDOWN;
+  }
+  
+  if (!mPointer.IsClickable && (mIconShutdown.IsSelected || mIconReset.IsSelected)) {
+    mIconShutdown.IsSelected = FALSE;
+    mIconReset.IsSelected = FALSE;
+    SelectResetFunc ();
   }
   return Result;
 }
@@ -2021,8 +2171,13 @@ KillMouse (
   if (mPointer.Pointer != NULL) {
     FreeImage (mPointer.Pointer);
   }
-
   mPointer.Pointer = NULL;
+  
+  if (mPointer.PointerAlt != NULL) {
+    FreeImage (mPointer.PointerAlt);
+  }
+  mPointer.PointerAlt = NULL;
+  mPointer.IsClickable = FALSE;
   mPointer.MouseEvent = NoEvents;
   mPointer.SimplePointerProtocol = NULL;
 }
@@ -2077,9 +2232,18 @@ OcWaitForKeyIndex (
         case LeftClick:
           mPointer.MouseEvent = NoEvents;
           KeyClick = CheckIconClick ();
-          if (KeyClick >= 0 && KeyClick != mCurrentSelection) {
-            mCurrentSelection = KeyClick;
-            return OC_INPUT_POINTER;
+          if (KeyClick == UI_INPUT_SYSTEM_RESET) {
+            mIconReset.Action (EfiResetCold);
+          }
+          if (KeyClick == UI_INPUT_SYSTEM_SHUTDOWN) {
+            mIconShutdown.Action (EfiResetShutdown);
+          }
+          if (KeyClick >= 0) {
+            if (HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
+              DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
+              OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
+            }
+            return KeyClick;
           }
           break;
         case RightClick:
@@ -2089,6 +2253,10 @@ OcWaitForKeyIndex (
           mPointer.MouseEvent = NoEvents;
           KeyClick = CheckIconClick ();
           if (KeyClick >= 0) {
+            if (HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
+              DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
+              OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
+            }
             return KeyClick;
           }
           break;
@@ -2097,7 +2265,10 @@ OcWaitForKeyIndex (
           mPointer.MouseEvent = NoEvents;
           if (CycleCount == 10) {
             KeyClick = CheckIconClick ();
-            if (KeyClick >= 0 && KeyClick != mCurrentSelection) {
+            if (KeyClick == UI_INPUT_SYSTEM_RESET || KeyClick == UI_INPUT_SYSTEM_SHUTDOWN) {
+              mCurrentSelection = UI_INPUT_SYSTEM_RESET;
+              return OC_INPUT_TAB;
+            } else if (KeyClick >= 0 && KeyClick != mCurrentSelection) {
               mCurrentSelection = KeyClick;
               return OC_INPUT_POINTER;
             }
@@ -2109,6 +2280,7 @@ OcWaitForKeyIndex (
       }
       mPointer.MouseEvent = NoEvents;
     }
+    
     NumKeys = ARRAY_SIZE (Keys);
     Status = KeyMap->GetKeyStrokes (
                        KeyMap,
@@ -2220,6 +2392,24 @@ OcWaitForKeyIndex (
         return OC_INPUT_SPACEBAR;
       }
       
+      if (Keys[0] == AppleHidUsbKbUsageKeyTab) {
+        OcKeyMapFlush (KeyMap, Keys[0], TRUE);
+        if (mIconReset.IsSelected) {
+          mIconShutdown.IsSelected = TRUE;
+          mIconReset.IsSelected = FALSE;
+        } else if (mIconShutdown.IsSelected) {
+          mIconShutdown.IsSelected = FALSE;
+          mIconReset.IsSelected = FALSE;
+          SelectResetFunc ();
+          return OC_INPUT_MENU;
+        } else {
+          mIconReset.IsSelected = TRUE;
+          mIconShutdown.IsSelected = FALSE;
+        }
+        SelectResetFunc ();
+        return OC_INPUT_TAB;
+      }
+      
       if (Keys[0] == AppleHidUsbKbUsageKeyEnter
         || Keys[0] == AppleHidUsbKbUsageKeyReturn
         || Keys[0] == AppleHidUsbKbUsageKeyPadEnter) {
@@ -2285,6 +2475,14 @@ OcWaitForKeyIndex (
   return OC_INPUT_TIMEOUT;
 }
 
+VOID
+SystemReset (
+  IN EFI_RESET_TYPE         ResetType
+  )
+{
+  gRT->ResetSystem (ResetType, EFI_SUCCESS, 0, NULL);
+}
+
 STATIC
 VOID
 RestoreConsoleMode (
@@ -2300,6 +2498,7 @@ RestoreConsoleMode (
   mSelectionImage = NULL;
   FreeImage (mLabelImage);
   mLabelImage = NULL;
+  FreeToolBar ();
   ClearScreenArea (&mBlackPixel, 0, 0, mScreenWidth, mScreenHeight);
   mUiScale = 0;
   mTextScale = 0;
@@ -2370,6 +2569,7 @@ OcShowSimpleBootMenu (
   InitScreen ();
   ClearScreen (&mTransparentPixel);
   PrepareFont ();
+  CreateToolBar (TRUE);
   
   while (TRUE) {
     FreeImage (mMenuImage);
@@ -2455,6 +2655,11 @@ OcShowSimpleBootMenu (
       }
       --TimeOutSeconds;
       if ((KeyIndex == OC_INPUT_TIMEOUT && TimeOutSeconds == 0) || KeyIndex == OC_INPUT_RETURN) {
+        if (mIconReset.IsSelected) {
+          mIconReset.Action (EfiResetCold);
+        } else if (mIconShutdown.IsSelected) {
+          mIconShutdown.Action (EfiResetShutdown);
+        }
         SwitchIconSelection (VisibleIndex, Selected, TRUE, TRUE);
         *ChosenBootEntry = &BootEntries[DefaultEntry];
         SetDefault = BootEntries[DefaultEntry].DevicePath != NULL
@@ -2487,7 +2692,7 @@ OcShowSimpleBootMenu (
       } else if (KeyIndex == OC_INPUT_FUNCTIONAL(9)) {
         TimeOutSeconds = 0;
         SaveEntriesDataToFile (L"System-Entries", BootEntries, Count);
-      } else if (KeyIndex == OC_INPUT_SPACEBAR) {
+      } else if ((KeyIndex == OC_INPUT_SPACEBAR) && !mIconReset.IsSelected && !mIconShutdown.IsSelected) {
         HidePointer ();
         ShowAll = !ShowAll;
         while ((BootEntries[DefaultEntry].IsAuxiliary && !ShowAll && DefaultEntry > 0)
@@ -2496,7 +2701,24 @@ OcShowSimpleBootMenu (
         }
         TimeOutSeconds = 0;
         break;
-      } else if (KeyIndex == OC_INPUT_UP) {
+      } else if (KeyIndex == OC_INPUT_MENU) {
+        HidePointer ();
+        SwitchIconSelection (VisibleIndex, Selected, TRUE, FALSE);
+        PrintTextDescription (MaxStrWidth,
+                              Selected,
+                              &BootEntries[DefaultEntry]
+                              );
+        PlayChosen = Context->PickerAudioAssist;
+        DrawPointer ();
+      } else if (KeyIndex == OC_INPUT_TAB) {
+        HidePointer ();
+        SwitchIconSelection (VisibleIndex, Selected, FALSE, FALSE);
+        if (!mPrintLabel) {
+          ClearScreenArea (&mTransparentPixel, 0, (mScreenHeight / 2) + mIconSpaceSize, mScreenWidth, mIconSpaceSize);
+        }
+        TimeOutSeconds = 0;
+        DrawPointer ();
+      } else if ((KeyIndex == OC_INPUT_UP) && !mIconReset.IsSelected && !mIconShutdown.IsSelected) {
         HidePointer ();
         SwitchIconSelection (VisibleIndex, Selected, FALSE, FALSE);
         DefaultEntry = Selected > 0 ? VisibleList[Selected - 1] : VisibleList[VisibleIndex - 1];
@@ -2510,7 +2732,7 @@ OcShowSimpleBootMenu (
         TimeOutSeconds = 0;
         PlayChosen = Context->PickerAudioAssist;
         DrawPointer ();
-      } else if (KeyIndex == OC_INPUT_DOWN) {
+      } else if ((KeyIndex == OC_INPUT_DOWN) && !mIconReset.IsSelected && !mIconShutdown.IsSelected) {
         HidePointer ();
         SwitchIconSelection (VisibleIndex, Selected, FALSE, FALSE);
         DefaultEntry = Selected < (VisibleIndex - 1) ? VisibleList[Selected + 1] : VisibleList[0];
