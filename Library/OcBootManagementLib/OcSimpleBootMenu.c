@@ -2239,7 +2239,7 @@ OcWaitForKeyIndex (
             mIconShutdown.Action (EfiResetShutdown);
           }
           if (KeyClick >= 0) {
-            if (HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
+            if (PollHotkeys && HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
               DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
               OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
             }
@@ -2253,7 +2253,7 @@ OcWaitForKeyIndex (
           mPointer.MouseEvent = NoEvents;
           KeyClick = CheckIconClick ();
           if (KeyClick >= 0) {
-            if (HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
+            if (PollHotkeys && HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
               DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
               OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
             }
