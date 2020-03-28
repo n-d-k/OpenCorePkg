@@ -2218,6 +2218,7 @@ OcWaitForKeyIndex (
   INTN                               CycleCount;
   
   CycleCount = 0;
+  HasCommand = FALSE;
   
   CurrTime  = GetTimeInNanoSecond (GetPerformanceCounter ());
   EndTime   = CurrTime + Timeout * 1000000ULL;
@@ -2239,7 +2240,7 @@ OcWaitForKeyIndex (
             mIconShutdown.Action (EfiResetShutdown);
           }
           if (KeyClick >= 0) {
-            if (PollHotkeys && HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
+            if (HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
               DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
               OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
             }
@@ -2253,7 +2254,7 @@ OcWaitForKeyIndex (
           mPointer.MouseEvent = NoEvents;
           KeyClick = CheckIconClick ();
           if (KeyClick >= 0) {
-            if (PollHotkeys && HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
+            if (HasCommand && (OcGetArgumentFromCmd (Context->AppleBootArgs, "-v", L_STR_LEN ("-v")) == NULL)) {
               DEBUG ((DEBUG_INFO, "OCB: CMD+V means -v\n"));
               OcAppendArgumentToCmd (Context, Context->AppleBootArgs, "-v", L_STR_LEN ("-v"));
             }
@@ -2295,9 +2296,9 @@ OcWaitForKeyIndex (
     }
 
     CurrTime    = GetTimeInNanoSecond (GetPerformanceCounter ());
+    HasCommand = (Modifiers & (APPLE_MODIFIER_LEFT_COMMAND | APPLE_MODIFIER_RIGHT_COMMAND)) != 0;
     
     if (PollHotkeys) {
-      HasCommand = (Modifiers & (APPLE_MODIFIER_LEFT_COMMAND | APPLE_MODIFIER_RIGHT_COMMAND)) != 0;
       HasShift   = (Modifiers & (APPLE_MODIFIER_LEFT_SHIFT | APPLE_MODIFIER_RIGHT_SHIFT)) != 0;
       HasKeyC    = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyC);
       HasKeyK    = OcKeyMapHasKey (Keys, NumKeys, AppleHidUsbKbUsageKeyK);
