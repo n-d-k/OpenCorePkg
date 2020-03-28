@@ -716,18 +716,18 @@ CreateIcon (
     case OC_BOOT_EXTERNAL_OS:
       if (StrStr (Name, L"Free") != NULL) {
         FilePath = UI_ICON_FREEBSD;
+      } else if (StrStr (Name, L"Arch") != NULL) {
+        FilePath = UI_ICON_ARCH;
+      } else if (StrStr (Name, L"Debian") != NULL) {
+        FilePath = UI_ICON_DEBIAN;
+      } else if (StrStr (Name, L"Fedora") != NULL) {
+        FilePath = UI_ICON_FEDORA;
       } else if (StrStr (Name, L"Linux") != NULL) {
         FilePath = UI_ICON_LINUX;
       } else if (StrStr (Name, L"Redhat") != NULL) {
         FilePath = UI_ICON_REDHAT;
       } else if (StrStr (Name, L"Ubuntu") != NULL) {
         FilePath = UI_ICON_UBUNTU;
-      } else if (StrStr (Name, L"Debian") != NULL) {
-        FilePath = UI_ICON_DEBIAN;
-      } else if (StrStr (Name, L"Arch") != NULL) {
-        FilePath = UI_ICON_ARCH;
-      } else if (StrStr (Name, L"Fedora") != NULL) {
-        FilePath = UI_ICON_FEDORA;
       } else if (StrStr (Name, L"10") != NULL) {
         FilePath = UI_ICON_WIN10;
       } else if (StrStr (Name, L"Win") != NULL) {
