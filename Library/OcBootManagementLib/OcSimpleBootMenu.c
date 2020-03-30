@@ -1653,11 +1653,12 @@ PrintTimeOutMessage (
 {
   CHAR16               String[52];
   
-  if (Timeout > 0) {
+  if (Timeout > 0 && !mPointerIsActive) {
     UnicodeSPrint (String, sizeof (String), L"%s %02u %s.", L"The default boot selection will start in", Timeout, L"seconds");
     PrintTextGraphicXY (String, -1, (mScreenHeight / 4) * 3);
   } else {
     ClearScreenArea (&mTransparentPixel, 0, ((mScreenHeight / 4) * 3) - 4, mScreenWidth, mFontHeight * 2);
+    Timeout = 0;
   }
   return !(Timeout > 0);
 }
