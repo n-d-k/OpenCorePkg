@@ -1855,7 +1855,7 @@ InitMouse (
                              );
   
   if (EFI_ERROR (Status) || mPointerSpeed == 0) {
-    DEBUG ((DEBUG_INFO, "OCUI: No PointerSpeed setting found!%s\n", mPointerSpeed));
+    DEBUG ((DEBUG_INFO, "OCUI: No PointerSpeed setting found! - %r\n", Status));
     mPointerSpeed = 6;
   } else {
     DEBUG ((DEBUG_INFO, "OCUI: Set PointerSpeed to %d\n", mPointerSpeed));
