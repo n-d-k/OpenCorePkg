@@ -465,7 +465,7 @@ OcScanForBootEntries (
       }
       
       Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_TOOL;
-      Entries[EntryIndex].IsAuxiliary = TRUE;
+      Entries[EntryIndex].IsAuxiliary = Context->CustomEntries[Index].Auxiliary;
 
       UnicodeUefiSlashes (PathName);
       Entries[EntryIndex].PathName = PathName;
