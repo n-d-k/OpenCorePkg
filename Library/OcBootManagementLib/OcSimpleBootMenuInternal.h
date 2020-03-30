@@ -81,6 +81,7 @@
 
 #define UI_MENU_SYSTEM_RESET          L"Restart"
 #define UI_MENU_SYSTEM_SHUTDOWN       L"Shutdown"
+#define UI_MENU_POINTER_SPEED         L"PointerSpeed"
 #define UI_INPUT_SYSTEM_RESET         99
 #define UI_INPUT_SYSTEM_SHUTDOWN      100
 

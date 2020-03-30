@@ -693,6 +693,8 @@
 			<dict>
 				<key>DefaultBackgroundColor</key>
 				<data>AAAAAA==</data>
+				<key>PointerSpeed</key>
+				<data>Bg==</data>
 				<key>UIScale</key>
 				<data>AQ==</data>
 			</dict>

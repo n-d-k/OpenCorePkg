@@ -463,11 +463,8 @@ OcScanForBootEntries (
         OcFreeBootEntries (Entries, EntryIndex + 1);
         return EFI_OUT_OF_RESOURCES;
       }
-      if (Context->CustomEntries[Index].Tool) {
-        Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_TOOL;
-      } else {
-        Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_OS;
-      }
+      
+      Entries[EntryIndex].Type = OC_BOOT_EXTERNAL_TOOL;
       Entries[EntryIndex].IsAuxiliary = TRUE;
 
       UnicodeUefiSlashes (PathName);

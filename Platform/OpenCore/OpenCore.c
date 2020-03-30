@@ -73,24 +73,24 @@ OcStartImage (
   EFI_CONSOLE_CONTROL_SCREEN_MODE  OldMode;
   CHAR16                           *DevicePathText;
   
-  DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
-  
-  if ((Chosen->Type & OC_BOOT_APPLE_ANY) != 0 || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
-    DEBUG ((DEBUG_INFO, "OC: OcLoadBooterUefiSupport...\n"));
-    OcLoadBooterUefiSupport (&mOpenCoreConfiguration);
-    
-    if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
-      DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for macOS...\n"));
-      OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
+  if (Chosen->DevicePath != NULL) {
+    DevicePathText = ConvertDevicePathToText (Chosen->DevicePath, FALSE, FALSE);
+    if ((Chosen->Type & OC_BOOT_APPLE_ANY) != 0 || StrStr(DevicePathText, L"\\System\\Library\\CoreServices\\boot.efi") != NULL) {
+      DEBUG ((DEBUG_INFO, "OC: OcLoadBooterUefiSupport...\n"));
+      OcLoadBooterUefiSupport (&mOpenCoreConfiguration);
+      
+      if (!mOpenCoreConfiguration.Acpi.Quirks.EnableForAll) {
+        DEBUG ((DEBUG_INFO, "OC: OcLoadAcpiSupport for macOS...\n"));
+        OcLoadAcpiSupport (&mOpenCoreStorage, &mOpenCoreConfiguration);
+      }
+      
+      DEBUG ((DEBUG_INFO, "OC: OcLoadPlatformSupport...\n"));
+      OcLoadPlatformSupport (&mOpenCoreConfiguration, &mOpenCoreCpuInfo);
+      DEBUG ((DEBUG_INFO, "OC: OcLoadDevPropsSupport...\n"));
+      OcLoadDevPropsSupport (&mOpenCoreConfiguration);
     }
-    
-    DEBUG ((DEBUG_INFO, "OC: OcLoadPlatformSupport...\n"));
-    OcLoadPlatformSupport (&mOpenCoreConfiguration, &mOpenCoreCpuInfo);
-    DEBUG ((DEBUG_INFO, "OC: OcLoadDevPropsSupport...\n"));
-    OcLoadDevPropsSupport (&mOpenCoreConfiguration);
+    FreePool (DevicePathText);
   }
-  
-  FreePool (DevicePathText);
 
   OldMode = OcConsoleControlSetMode (EfiConsoleControlScreenGraphics);
 
