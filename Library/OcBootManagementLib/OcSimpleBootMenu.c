@@ -39,8 +39,8 @@ POINTERS mPointer = {NULL, NULL, NULL, NULL, NULL,
 {0, 0, 0, FALSE, FALSE}, NoEvents};
 
 STATIC
-UINT8
-mPointerSpeed = 6;
+UINT32
+mPointerSpeed = 0;
 
 STATIC
 UINT64
@@ -1851,11 +1851,11 @@ InitMouse (
                              &gAppleVendorVariableGuid,
                              NULL,
                              &DataSize,
-                             (VOID *) &mPointerSpeed
+                             &mPointerSpeed
                              );
   
-  if (EFI_ERROR (Status) || mPointerSpeed < 1) {
-    DEBUG ((DEBUG_INFO, "OCUI: No PointerSpeed found!, using default %d\n", mPointerSpeed));
+  if (EFI_ERROR (Status) || mPointerSpeed == 0) {
+    DEBUG ((DEBUG_INFO, "OCUI: No PointerSpeed setting found!%s\n", mPointerSpeed));
     mPointerSpeed = 6;
   } else {
     DEBUG ((DEBUG_INFO, "OCUI: Set PointerSpeed to %d\n", mPointerSpeed));
