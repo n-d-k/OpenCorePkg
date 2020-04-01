@@ -2508,6 +2508,9 @@ SystemReset (
   IN EFI_RESET_TYPE         ResetType
   )
 {
+  if (ResetType == EfiResetCold) {
+    DirectRestCold ();
+  }
   gRT->ResetSystem (ResetType, EFI_SUCCESS, 0, NULL);
 }
 

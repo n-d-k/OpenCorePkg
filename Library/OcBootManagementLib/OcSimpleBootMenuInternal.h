@@ -33,6 +33,7 @@
 #include <Library/OcFileLib.h>
 #include <Library/OcStorageLib.h>
 #include <Library/OcTimerLib.h>
+#include <Library/OcMiscLib.h>
 
 #include <BootManagementInternal.h>
 
