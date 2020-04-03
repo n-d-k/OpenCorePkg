@@ -647,6 +647,8 @@ OcMiscBoot (
 
   HotkeyNumber = OcLoadPickerHotKeys (Context);
   
+  DEBUG ((DEBUG_INFO, "OC: Ready for takeoff in %u us\n", (UINT32) Context->TakeoffDelay));
+  
   Context->ShowNvramReset = Config->Misc.Security.AllowNvramReset;
   Context->AllowSetDefault = Config->Misc.Security.AllowSetDefault;
   if (!Config->Misc.Security.AllowNvramReset && Context->PickerCommand == OcPickerResetNvram) {

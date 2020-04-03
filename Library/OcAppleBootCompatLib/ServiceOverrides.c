@@ -347,6 +347,8 @@ OcGetMemoryMap (
 {
   EFI_STATUS            Status;
   BOOT_COMPAT_CONTEXT   *BootCompat;
+  EFI_PHYSICAL_ADDRESS  Address;
+  UINTN                 Pages;
 
   BootCompat = GetBootCompatContext ();
 
@@ -360,6 +362,22 @@ OcGetMemoryMap (
 
   if (EFI_ERROR (Status)) {
     return Status;
+  }
+
+  if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
+    Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
+
+    if (!EFI_ERROR (Status)) {
+      OcUpdateDescriptors (
+        *MemoryMapSize,
+        MemoryMap,
+        *DescriptorSize,
+        Address,
+        EfiRuntimeServicesCode,
+        0,
+        0
+        );
+    }
   }
 
   if (BootCompat->ServiceState.AppleBootNestedCount > 0) {
@@ -562,6 +580,8 @@ OcExitBootServices (
 {
   EFI_STATUS               Status;
   BOOT_COMPAT_CONTEXT      *BootCompat;
+  EFI_PHYSICAL_ADDRESS     Address;
+  UINTN                    Pages;
   UINTN                    Index;
 
   BootCompat = GetBootCompatContext ();
@@ -579,6 +599,14 @@ OcExitBootServices (
       // Even if ExitBootServices fails, do not subsequently call the events we handled.
       //
       BootCompat->Settings.ExitBootServicesHandlers[Index] = NULL;
+    }
+  }
+
+  if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
+    Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
+
+    if (!EFI_ERROR (Status)) {
+      OcUpdateAttributes (Address, EfiRuntimeServicesCode, EFI_MEMORY_RO, EFI_MEMORY_XP);
     }
   }
 
@@ -765,9 +793,21 @@ SetGetVariableHookHandler (
       (VOID **) &FwRuntime
       );
 
-    if (!EFI_ERROR (Status) && FwRuntime->Revision == OC_FIRMWARE_RUNTIME_REVISION) {
-      Status = FwRuntime->OnGetVariable (OcGetVariable, &BootCompat->ServicePtrs.GetVariable);
+    if (!EFI_ERROR (Status)) {
+      if (FwRuntime->Revision == OC_FIRMWARE_RUNTIME_REVISION) {
+        DEBUG ((DEBUG_INFO, "OCABC: Got rendezvous with OpenRuntime r%u\n", OC_FIRMWARE_RUNTIME_REVISION));
+        Status = FwRuntime->OnGetVariable (OcGetVariable, &BootCompat->ServicePtrs.GetVariable);
+      } else {
+        DEBUG ((
+          DEBUG_ERROR,
+          "OCABC: Incompatible OpenRuntime r%u, require r%u\n",
+          (UINT32) FwRuntime->Revision,
+          (UINT32) OC_FIRMWARE_RUNTIME_REVISION
+          ));
+        CpuDeadLoop ();
+      }
     } else {
+      DEBUG ((DEBUG_INFO, "OCABC: Awaiting rendezvous with OpenRuntime r%u\n", OC_FIRMWARE_RUNTIME_REVISION));
       Status = EFI_UNSUPPORTED;
     }
 
