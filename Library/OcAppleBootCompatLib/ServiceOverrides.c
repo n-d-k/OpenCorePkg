@@ -275,6 +275,8 @@ OcAllocatePages (
 {
   EFI_STATUS              Status;
   BOOT_COMPAT_CONTEXT     *BootCompat;
+  EFI_PHYSICAL_ADDRESS    Address;
+  UINTN                   Pages;
   BOOLEAN                 IsPerfAlloc;
 
   BootCompat  = GetBootCompatContext ();
@@ -299,30 +301,40 @@ OcAllocatePages (
     Memory
     );
 
-  if (!EFI_ERROR (Status) && BootCompat->ServiceState.AppleBootNestedCount > 0) {
-    if (IsPerfAlloc) {
-      //
-      // Called from boot.efi.
-      // New perf data, it can be reallocated multiple times.
-      //
-      OcAppleDebugLogPerfAllocated ((VOID *)(UINTN) *Memory, EFI_PAGES_TO_SIZE (NumberOfPages));
-    } else if (Type == AllocateAddress && MemoryType == EfiLoaderData) {
-      //
-      // Called from boot.efi.
-      // Store minimally allocated address to find kernel image start.
-      //
-      if (BootCompat->ServiceState.MinAllocatedAddr == 0
-        || *Memory < BootCompat->ServiceState.MinAllocatedAddr) {
-        BootCompat->ServiceState.MinAllocatedAddr = *Memory;
+  if (!EFI_ERROR (Status)) {
+    if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
+      Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
+
+      if (!EFI_ERROR (Status)) {
+        OcUpdateAttributes (Address, EfiRuntimeServicesCode, EFI_MEMORY_RO, EFI_MEMORY_XP);
       }
-    } else if (BootCompat->ServiceState.AppleHibernateWake
-      && Type == AllocateAnyPages && MemoryType == EfiLoaderData
-      && BootCompat->ServiceState.HibernateImageAddress == 0) {
-      //
-      // Called from boot.efi during hibernate wake,
-      // first such allocation is for hibernate image
-      //
-      BootCompat->ServiceState.HibernateImageAddress = *Memory;
+    }
+
+    if (BootCompat->ServiceState.AppleBootNestedCount > 0) {
+      if (IsPerfAlloc) {
+        //
+        // Called from boot.efi.
+        // New perf data, it can be reallocated multiple times.
+        //
+        OcAppleDebugLogPerfAllocated ((VOID *)(UINTN) *Memory, EFI_PAGES_TO_SIZE (NumberOfPages));
+      } else if (Type == AllocateAddress && MemoryType == EfiLoaderData) {
+        //
+        // Called from boot.efi.
+        // Store minimally allocated address to find kernel image start.
+        //
+        if (BootCompat->ServiceState.MinAllocatedAddr == 0
+          || *Memory < BootCompat->ServiceState.MinAllocatedAddr) {
+          BootCompat->ServiceState.MinAllocatedAddr = *Memory;
+        }
+      } else if (BootCompat->ServiceState.AppleHibernateWake
+        && Type == AllocateAnyPages && MemoryType == EfiLoaderData
+        && BootCompat->ServiceState.HibernateImageAddress == 0) {
+        //
+        // Called from boot.efi during hibernate wake,
+        // first such allocation is for hibernate image
+        //
+        BootCompat->ServiceState.HibernateImageAddress = *Memory;
+      }
     }
   }
 
@@ -346,12 +358,15 @@ OcGetMemoryMap (
   )
 {
   EFI_STATUS            Status;
+  EFI_STATUS            Status2;
   BOOT_COMPAT_CONTEXT   *BootCompat;
   EFI_PHYSICAL_ADDRESS  Address;
   UINTN                 Pages;
+  UINTN                 OriginalSize;
 
   BootCompat = GetBootCompatContext ();
 
+  OriginalSize = MemoryMapSize != 0 ? *MemoryMapSize : 0;
   Status = BootCompat->ServicePtrs.GetMemoryMap (
     MemoryMapSize,
     MemoryMap,
@@ -360,14 +375,22 @@ OcGetMemoryMap (
     DescriptorVersion
     );
 
+  //
+  // Reserve larger area for the memory map when we need to split it.
+  //
+  if (BootCompat->ServiceState.AppleBootNestedCount > 0 && Status == EFI_BUFFER_TOO_SMALL) {
+    *MemoryMapSize += OcCountSplitDescritptors () * *DescriptorSize;
+    return EFI_BUFFER_TOO_SMALL;
+  }
+
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
   if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
-    Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
+    Status2 = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
 
-    if (!EFI_ERROR (Status)) {
+    if (!EFI_ERROR (Status2)) {
       OcUpdateDescriptors (
         *MemoryMapSize,
         MemoryMap,
@@ -398,7 +421,17 @@ OcGetMemoryMap (
         );
     }
 
-    if (BootCompat->Settings.ShrinkMemoryMap) {
+    if (BootCompat->Settings.RebuildAppleMemoryMap) {
+      Status2 = OcSplitMemoryMapByAttributes (
+        OriginalSize,
+        MemoryMapSize,
+        MemoryMap,
+        *DescriptorSize
+        );
+      if (EFI_ERROR (Status2) && Status != EFI_UNSUPPORTED) {
+        DEBUG ((DEBUG_INFO, "OCABC: Cannot rebuild memory map - %r\n", Status));
+      }
+
       ShrinkMemoryMap (
         MemoryMapSize,
         MemoryMap,
@@ -411,6 +444,10 @@ OcGetMemoryMap (
     // during hibernate wake to be able to iterate memory map.
     //
     BootCompat->ServiceState.MemoryMapDescriptorSize = *DescriptorSize;
+
+    if (*MemoryMapSize > EFI_PAGE_SIZE) {
+      DEBUG ((DEBUG_INFO, "OCABC: Memory map exceeds 4K - %u, booting may fail\n", (UINT32) *MemoryMapSize));
+    }
   }
 
   return Status;
@@ -435,6 +472,8 @@ OcStartImage (
   BOOT_COMPAT_CONTEXT         *BootCompat;
   OC_FWRT_CONFIG              Config;
   UINTN                       DataSize;
+  EFI_PHYSICAL_ADDRESS        Address;
+  UINTN                       Pages;
 
   BootCompat        = GetBootCompatContext ();
   AppleLoadedImage  = OcGetAppleBootLoadedImage (ImageHandle);
@@ -448,6 +487,14 @@ OcStartImage (
     gBS->GetMemoryMap = OcGetMemoryMap;
     gBS->Hdr.CRC32    = 0;
     gBS->CalculateCrc32 (gBS, gBS->Hdr.HeaderSize, &gBS->Hdr.CRC32);
+  }
+
+  if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
+    Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
+
+    if (!EFI_ERROR (Status)) {
+      OcUpdateAttributes (Address, EfiRuntimeServicesCode, EFI_MEMORY_RO, EFI_MEMORY_XP);
+    }
   }
 
   //
