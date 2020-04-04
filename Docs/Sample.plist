@@ -248,6 +248,8 @@
 			<false/>
 			<key>DiscardHibernateMap</key>
 			<false/>
+			<key>EnableForAll</key>
+			<false/>
 			<key>EnableSafeModeSlide</key>
 			<true/>
 			<key>EnableWriteUnprotector</key>

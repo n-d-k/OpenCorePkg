@@ -118,6 +118,7 @@
   _(BOOLEAN                     , DisableSingleUser         ,     , FALSE  , ()) \
   _(BOOLEAN                     , DisableVariableWrite      ,     , FALSE  , ()) \
   _(BOOLEAN                     , DiscardHibernateMap       ,     , FALSE  , ()) \
+  _(BOOLEAN                     , EnableForAll              ,     , FALSE  , ()) \
   _(BOOLEAN                     , EnableSafeModeSlide       ,     , FALSE  , ()) \
   _(BOOLEAN                     , EnableWriteUnprotector    ,     , FALSE  , ()) \
   _(BOOLEAN                     , ForceExitBootServices     ,     , FALSE  , ()) \
