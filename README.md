@@ -6,8 +6,8 @@ Additional features/changes implemented by this fork [![Build Status](https://tr
 
 [ Multi-Boot ]
          
-         - ACPI patches are optional for non macOS with setting ACPI->Quirks->EnableForAll to yes (default is no).
-         - Booter Quirtks, SMBIOS and Device Properties patches will only applied to macOS.
+         - ACPI patches and Booter Quirks are optional for non macOS with setting ACPI->Quirks->EnableForAll / Booter->Quirks->EnableForAll to yes (default is no).
+         - SMBIOS and Device Properties patches will only applied to macOS.
  
 [ Hotkeys ]
  
