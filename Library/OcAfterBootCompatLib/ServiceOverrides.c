@@ -56,17 +56,20 @@ FixRuntimeAttributes (
 
   if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
     //
-    // Some firmwares do not update MAT after loading runtime drivers after EndOfDxe.
-    // Since the memory used to allocate runtime driver resides in BINs, MAT has whatever
-    // permissions designated for unused memory. Mark unused memory containing our driver
-    // as executable here.
-    // REF: https://github.com/acidanthera/bugtracker/issues/491#issuecomment-606835337
+    // Be very careful of recursion here, who knows what the firmware can call.
     //
+    BootCompat->Settings.SyncRuntimePermissions = FALSE;
+
     Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
 
     if (!EFI_ERROR (Status)) {
-      OcUpdateAttributes (Address, EfiRuntimeServicesCode, EFI_MEMORY_RO, EFI_MEMORY_XP);
+      OcRebuildAttributes (Address, BootCompat->ServicePtrs.GetMemoryMap);
     }
+
+    //
+    // Permit syncing runtime permissions again.
+    //
+    BootCompat->Settings.SyncRuntimePermissions = TRUE;
   }
 }
 
@@ -115,7 +118,7 @@ ForceExitBootServices (
     // It is technically forbidden to allocate pool memory here, but we should not hit this code
     // in the first place, and for older firmwares, where it was necessary (?), it worked just fine.
     //
-    Status = GetCurrentMemoryMapAlloc (
+    Status = OcGetCurrentMemoryMapAlloc (
       &MemoryMapSize,
       &MemoryMap,
       &MapKey,
@@ -147,7 +150,7 @@ ForceExitBootServices (
 }
 
 /**
-  Protect CSM region in memory map from relocation.
+  Protect regions in memory map.
 
   @param[in,out]  MemoryMapSize      Memory map size in bytes, updated on shrink.
   @param[in,out]  MemoryMap          Memory map to shrink.
@@ -155,7 +158,7 @@ ForceExitBootServices (
 **/
 STATIC
 VOID
-ProtectCsmRegion (
+ProtectMemoryRegions (
   IN     UINTN                  MemoryMapSize,
   IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
   IN     UINTN                  DescriptorSize
@@ -198,6 +201,23 @@ ProtectCsmRegion (
         Desc->Type = EfiACPIMemoryNVS;
         break;
       }
+    }
+
+    Desc = NEXT_MEMORY_DESCRIPTOR (Desc, DescriptorSize);
+  }
+
+  //
+  // Some firmwares may leave MMIO regions as reserved memory with runtime flag,
+  // which will not get mapped by macOS kernel. This will cause boot failures due
+  // to these firmwares accessing these regions at runtime for NVRAM support.
+  // REF: https://github.com/acidanthera/bugtracker/issues/791#issuecomment-608959387
+  //
+
+  Desc = MemoryMap;
+
+  for (Index = 0; Index < NumEntries; ++Index) {
+    if (Desc->Type == EfiReservedMemoryType && (Desc->Attribute & EFI_MEMORY_RUNTIME) != 0) {
+      Desc->Type = EfiMemoryMappedIO;
     }
 
     Desc = NEXT_MEMORY_DESCRIPTOR (Desc, DescriptorSize);
@@ -465,8 +485,8 @@ OcGetMemoryMap (
   }
 
   if (BootCompat->ServiceState.AppleBootNestedCount > 0) {
-    if (BootCompat->Settings.ProtectCsmRegion) {
-      ProtectCsmRegion (
+    if (BootCompat->Settings.ProtectMemoryRegions) {
+      ProtectMemoryRegions (
         *MemoryMapSize,
         MemoryMap,
         *DescriptorSize

@@ -20,7 +20,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/BaseLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
-#include <Library/OcAppleBootCompatLib.h>
+#include <Library/OcAfterBootCompatLib.h>
 #include <Library/OcAppleBootPolicyLib.h>
 #include <Library/OcAppleEventLib.h>
 #include <Library/OcAppleImageConversionLib.h>
@@ -387,7 +387,7 @@ OcLoadBooterUefiSupport (
   AbcSettings.EnableSafeModeSlide    = Config->Booter.Quirks.EnableSafeModeSlide;
   AbcSettings.EnableWriteUnprotector = Config->Booter.Quirks.EnableWriteUnprotector;
   AbcSettings.ForceExitBootServices  = Config->Booter.Quirks.ForceExitBootServices;
-  AbcSettings.ProtectCsmRegion       = Config->Booter.Quirks.ProtectCsmRegion;
+  AbcSettings.ProtectMemoryRegions   = Config->Booter.Quirks.ProtectMemoryRegions;
   AbcSettings.ProvideCustomSlide     = Config->Booter.Quirks.ProvideCustomSlide;
   AbcSettings.ProtectUefiServices    = Config->Booter.Quirks.ProtectUefiServices;
   AbcSettings.RebuildAppleMemoryMap  = Config->Booter.Quirks.RebuildAppleMemoryMap;

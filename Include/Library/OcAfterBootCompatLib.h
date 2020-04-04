@@ -12,8 +12,8 @@
   WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 **/
 
-#ifndef OC_APPLE_BOOT_COMPAT_LIB_H
-#define OC_APPLE_BOOT_COMPAT_LIB_H
+#ifndef OC_AFTER_BOOT_COMPAT_LIB_H
+#define OC_AFTER_BOOT_COMPAT_LIB_H
 
 /**
   Apple Boot Compatibility layer configuration.
@@ -55,10 +55,13 @@ typedef struct OC_ABC_SETTINGS_ {
   ///
   BOOLEAN  EnableSafeModeSlide;
   ///
-  /// Attempt to protect certain CSM memory regions from being used by the kernel.
-  /// On older firmwares this caused wake issues.
+  /// Attempt to protect certain memory regions from being incorrectly mapped:
+  /// - CSM region could get used by the kernel due to being BS data,
+  ///   which caused caused wake issues on older firmwares.
+  /// - MMIO regions can be marked as reserved memory and be thus unmapped,
+  ///   which caused boot failures when accessing NVRAM.
   ///
-  BOOLEAN  ProtectCsmRegion;
+  BOOLEAN  ProtectMemoryRegions;
   ///
   /// Rebuild memory map to be compatible with Apple kernel.
   /// - Apply memory attributes and split RT entries into code and data.
@@ -134,4 +137,4 @@ OcAbcInitialize (
   IN OC_ABC_SETTINGS  *Settings
   );
 
-#endif // OC_APPLE_BOOT_COMPAT_LIB_H
+#endif // OC_AFTER_BOOT_COMPAT_LIB_H
