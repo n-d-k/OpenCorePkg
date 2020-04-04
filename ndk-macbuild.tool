@@ -62,6 +62,7 @@ package() {
   cp OpenUsbKbDxe.efi tmp/EFI/OC/Drivers/ || exit 1
   cp OpenRuntime.efi tmp/EFI/OC/Drivers/ || exit 1
   cp HiiDatabase.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp MmapDump.efi tmp/EFI/OC/Tools/ || exit 1
   cp NvmExpressDxe.efi tmp/EFI/OC/Drivers/ || exit 1
   cp XhciDxe.efi tmp/EFI/OC/Drivers/ || exit 1
   cp BootKicker.efi tmp/EFI/OC/Tools/ || exit 1

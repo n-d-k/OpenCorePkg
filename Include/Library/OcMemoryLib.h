@@ -73,21 +73,25 @@ LegacyRegionUnlock (
   );
 
 /**
-  Get current memory map allocated on pool.
+  Get current memory map allocated on pool with reserved entries.
 
-  @param[out]  MemoryMapSize      Resulting memory map size in bytes.
-  @param[out]  DescriptorSize     Resulting memory map descriptor size in bytes.
-  @param[out]  MapKey             Memory map key, optional.
-  @param[out]  DescriptorVersion  Memory map descriptor version, optional.
+  @param[out]  MemoryMapSize          Resulting memory map size in bytes.
+  @param[out]  DescriptorSize         Resulting memory map descriptor size in bytes.
+  @param[out]  MapKey                 Memory map key, optional.
+  @param[out]  DescriptorVersion      Memory map descriptor version, optional.
+  @param[out]  OriginalMemoryMapSize  Actual pool allocation memory, optional.
+  @param[out]  IncludeSplitSpace      Allocate memory to permit splitting memory map.
 
   @retval current memory map or NULL.
 **/
 EFI_MEMORY_DESCRIPTOR *
-GetCurrentMemoryMap (
+OcGetCurrentMemoryMap (
   OUT UINTN   *MemoryMapSize,
   OUT UINTN   *DescriptorSize,
-  OUT UINTN   *MapKey             OPTIONAL,
-  OUT UINT32  *DescriptorVersion  OPTIONAL
+  OUT UINTN   *MapKey                 OPTIONAL,
+  OUT UINT32  *DescriptorVersion      OPTIONAL,
+  OUT UINTN   *OriginalMemoryMapSize  OPTIONAL,
+  IN  BOOLEAN IncludeSplitSpace
   );
 
 /**
@@ -115,14 +119,30 @@ GetCurrentMemoryMapAlloc (
   );
 
 /**
+  Sort memory map entries based upon PhysicalStart, from low to high.
+
+  @param  MemoryMapSize          Size, in bytes, of the MemoryMap buffer.
+  @param  MemoryMap              A pointer to the buffer in which firmware places
+                                 the current memory map.
+  @param  DescriptorSize         Size, in bytes, of an individual EFI_MEMORY_DESCRIPTOR.
+**/
+VOID
+OcSortMemoryMap (
+  IN UINTN                      MemoryMapSize,
+  IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
+  IN UINTN                      DescriptorSize
+  );
+
+/**
   Shrink memory map by joining non-runtime records.
+  Requires sorted memory map.
 
   @param[in,out]  MemoryMapSize      Memory map size in bytes, updated on shrink.
   @param[in,out]  MemoryMap          Memory map to shrink.
   @param[in]      DescriptorSize     Memory map descriptor size in bytes.
 **/
 VOID
-ShrinkMemoryMap (
+OcShrinkMemoryMap (
   IN OUT UINTN                  *MemoryMapSize,
   IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
   IN     UINTN                  DescriptorSize
@@ -221,6 +241,20 @@ OcPrintMemoryAttributesTable (
   );
 
 /**
+  Print memory map.
+
+  @param[in]  MemoryMapSize   Memory map size in bytes.
+  @param[in]  MemoryMap       Memory map to print.
+  @param[in]  DescriptorSize  Memory map descriptor size in bytes.
+**/
+VOID
+OcPrintMemoryMap (
+  IN UINTN                  MemoryMapSize,
+  IN EFI_MEMORY_DESCRIPTOR  *MemoryMap,
+  IN UINTN                  DescriptorSize
+  );
+
+/**
   Refresh memory descriptor containing the specified address.
 
   @param[in]  MemoryMapSize   Memory map size in bytes.
@@ -291,8 +325,9 @@ OcCountSplitDescritptors (
 
 /**
   Split memory map by memory attributes if available.
+  Requires sorted memory map!
 
-  @param[in]     OriginalMemoryMapSize   Upper memory map size bound for growth.
+  @param[in]     MaxMemoryMapSize        Upper memory map size bound for growth.
   @param[in,out] MemoryMapSize           Current memory map size, updated on return.
   @param[in,out] MemoryMap               Memory map to split.
   @param[in]     DescriptorSize          Memory map descriptor size.
@@ -305,7 +340,7 @@ OcCountSplitDescritptors (
 **/
 EFI_STATUS
 OcSplitMemoryMapByAttributes (
-  IN     UINTN                  OriginalMemoryMapSize,
+  IN     UINTN                  MaxMemoryMapSize,
   IN OUT UINTN                  *MemoryMapSize,
   IN OUT EFI_MEMORY_DESCRIPTOR  *MemoryMap,
   IN     UINTN                  DescriptorSize
@@ -358,15 +393,17 @@ typedef struct OC_VMEM_CONTEXT_ {
   in the end of BASE_4GB of RAM. Should be called while boot services are
   still usable.
 
-  @param[out]  Context   Virtual memory pool context.
-  @param[in]   NumPages  Number of pages to be allocated in the pool.
+  @param[out]  Context       Virtual memory pool context.
+  @param[in]   NumPages      Number of pages to be allocated in the pool.
+  @param[in]   GetMemoryMap  Custom GetMemoryMap implementation to use, optional.
 
   @retval EFI_SUCCESS on successful allocation.
 **/
 EFI_STATUS
 VmAllocateMemoryPool (
-  OUT OC_VMEM_CONTEXT  *Context,
-  IN  UINTN            NumPages
+  OUT OC_VMEM_CONTEXT     *Context,
+  IN  UINTN               NumPages,
+  IN  EFI_GET_MEMORY_MAP  GetMemoryMap  OPTIONAL
   );
 
 /**
