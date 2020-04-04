@@ -42,14 +42,26 @@
 STATIC
 VOID
 FixRuntimeAttributes (
-  IN BOOT_COMPAT_CONTEXT     *BootCompat
+  IN BOOT_COMPAT_CONTEXT     *BootCompat,
+  IN UINT32                  Type
   )
 {
   EFI_STATUS              Status;
   EFI_PHYSICAL_ADDRESS    Address;
   UINTN                   Pages;
 
+  if (Type != EfiRuntimeServicesCode && Type != EfiRuntimeServicesData) {
+    return;
+  }
+
   if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
+    //
+    // Some firmwares do not update MAT after loading runtime drivers after EndOfDxe.
+    // Since the memory used to allocate runtime driver resides in BINs, MAT has whatever
+    // permissions designated for unused memory. Mark unused memory containing our driver
+    // as executable here.
+    // REF: https://github.com/acidanthera/bugtracker/issues/491#issuecomment-606835337
+    //
     Status = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
 
     if (!EFI_ERROR (Status)) {
@@ -324,7 +336,7 @@ OcAllocatePages (
     );
 
   if (!EFI_ERROR (Status)) {
-    FixRuntimeAttributes (BootCompat);
+    FixRuntimeAttributes (BootCompat, MemoryType);
 
     if (BootCompat->ServiceState.AppleBootNestedCount > 0) {
       if (IsPerfAlloc) {
@@ -380,7 +392,7 @@ OcFreePages (
     );
 
   if (!EFI_ERROR (Status)) {
-    FixRuntimeAttributes (BootCompat);
+    FixRuntimeAttributes (BootCompat, EfiRuntimeServicesData);
   }
 
   return Status;
@@ -433,6 +445,10 @@ OcGetMemoryMap (
   }
 
   if (BootCompat->Settings.SyncRuntimePermissions && BootCompat->ServiceState.FwRuntime != NULL) {
+    //
+    // Some firmwares mark runtime drivers loaded after EndOfDxe as EfiRuntimeServicesData:
+    // REF: https://github.com/acidanthera/bugtracker/issues/791#issuecomment-607935508
+    //
     Status2 = BootCompat->ServiceState.FwRuntime->GetExecArea (&Address, &Pages);
 
     if (!EFI_ERROR (Status2)) {
@@ -521,7 +537,7 @@ OcAllocatePool (
     );
 
   if (!EFI_ERROR (Status)) {
-    FixRuntimeAttributes (BootCompat);
+    FixRuntimeAttributes (BootCompat, PoolType);
   }
 
   return Status;
@@ -548,7 +564,7 @@ OcFreePool (
     );
 
   if (!EFI_ERROR (Status)) {
-    FixRuntimeAttributes (BootCompat);
+    FixRuntimeAttributes (BootCompat, EfiRuntimeServicesData);
   }
 
   return Status;
@@ -588,7 +604,7 @@ OcStartImage (
     gBS->CalculateCrc32 (gBS, gBS->Hdr.HeaderSize, &gBS->Hdr.CRC32);
   }
 
-  FixRuntimeAttributes (BootCompat);
+  FixRuntimeAttributes (BootCompat, EfiRuntimeServicesData);
 
   //
   // Clear monitoring vars
@@ -740,7 +756,7 @@ OcExitBootServices (
     }
   }
 
-  FixRuntimeAttributes (BootCompat);
+  FixRuntimeAttributes (BootCompat, EfiRuntimeServicesData);
 
   //
   // For non-macOS operating systems return directly.
