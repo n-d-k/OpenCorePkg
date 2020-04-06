@@ -156,6 +156,7 @@ typedef struct _pointers {
 
 #define ICON_BRIGHTNESS_LEVEL   80
 #define ICON_BRIGHTNESS_FULL    0
+#define ICON_ROW_SPACE_OFFSET   20
 
 NDK_UI_IMAGE *
 CreateImage (
