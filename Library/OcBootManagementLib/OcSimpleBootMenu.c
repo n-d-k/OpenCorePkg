@@ -614,7 +614,7 @@ SaveEntriesDataToFile (
     AsciiStrCatS (AsciiBuffer, EFI_PAGE_SIZE, AsciiStr);
     
     for (Index = 0; Index < Count; ++Index) {
-      if (Entries[Index].Type == OC_BOOT_SYSTEM || Entries[Index].DevicePath == NULL) {
+      if (Entries[Index].Type == OC_BOOT_RESET_NVRAM || Entries[Index].DevicePath == NULL) {
         continue;
       }
       
@@ -750,7 +750,7 @@ CreateIcon (
     case OC_BOOT_APPLE_ANY:
       FilePath = UI_ICON_MAC;
       break;
-    case OC_BOOT_SYSTEM:
+    case OC_BOOT_RESET_NVRAM:
       FilePath = UI_ICON_RESETNVRAM;
       break;
     case OC_BOOT_UNKNOWN:
@@ -2726,7 +2726,7 @@ OcShowSimpleBootMenu (
         HidePointer ();
         ShowAll = !ShowAll;
         while ((BootEntries[DefaultEntry].IsAuxiliary && !ShowAll && DefaultEntry > 0)
-               || (BootEntries[DefaultEntry].Type == OC_BOOT_SYSTEM && !ShowAll && DefaultEntry > 0)) {
+               || (BootEntries[DefaultEntry].Type == OC_BOOT_RESET_NVRAM && !ShowAll && DefaultEntry > 0)) {
           --DefaultEntry;
         }
         TimeOutSeconds = 0;

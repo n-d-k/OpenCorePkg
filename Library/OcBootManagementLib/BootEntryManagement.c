@@ -25,6 +25,8 @@
 #include <Library/OcStringLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
+#include <Library/PrintLib.h>
+
 
 EFI_STATUS
 OcDescribeBootEntry (
@@ -130,6 +132,154 @@ OcDescribeBootEntry (
   BootEntry->PathName = BootDirectoryName;
 
   return EFI_SUCCESS;
+}
+
+EFI_STATUS
+OcGetBootEntryLabelImage (
+  IN  OC_PICKER_CONTEXT          *Context,
+  IN  APPLE_BOOT_POLICY_PROTOCOL *BootPolicy,
+  IN  OC_BOOT_ENTRY              *BootEntry,
+  IN  UINT8                      Scale,
+  OUT VOID                       **ImageData,
+  OUT UINT32                     *DataLength
+  )
+{
+  EFI_STATUS                       Status;
+  CHAR16                           *BootDirectoryName;
+  EFI_HANDLE                       Device;
+  EFI_HANDLE                       ApfsVolumeHandle;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
+
+  *ImageData = NULL;
+  *DataLength = 0;
+
+  if (BootEntry->Type == OC_BOOT_EXTERNAL_TOOL || BootEntry->Type == OC_BOOT_RESET_NVRAM) {
+    ASSERT (Context->CustomDescribe != NULL);
+
+    Status = Context->CustomDescribe (
+      Context->CustomEntryContext,
+      BootEntry,
+      Scale,
+      NULL,
+      NULL,
+      ImageData,
+      DataLength
+      );
+
+    DEBUG ((DEBUG_INFO, "OCB: Get custom label %s - %r\n", BootEntry->Name, Status));
+    return Status;
+  }
+
+  ASSERT (BootEntry->DevicePath != NULL);
+
+  Status = BootPolicy->DevicePathToDirPath (
+    BootEntry->DevicePath,
+    &BootDirectoryName,
+    &Device,
+    &ApfsVolumeHandle
+    );
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = gBS->HandleProtocol (
+    Device,
+    &gEfiSimpleFileSystemProtocolGuid,
+    (VOID **) &FileSystem
+    );
+
+  if (EFI_ERROR (Status)) {
+    FreePool (BootDirectoryName);
+    return Status;
+  }
+
+  Status = InternalGetAppleImage (
+    FileSystem,
+    BootDirectoryName,
+    Scale == 2 ? L".disk_label_2x" : L".disk_label",
+    ImageData,
+    DataLength
+    );
+
+  DEBUG ((DEBUG_INFO, "OCB: Get normal label %s - %r\n", BootEntry->Name, Status));
+  FreePool (BootDirectoryName);
+
+  return Status;
+}
+
+EFI_STATUS
+OcGetBootEntryIcon (
+  IN  OC_PICKER_CONTEXT          *Context,
+  IN  APPLE_BOOT_POLICY_PROTOCOL *BootPolicy,
+  IN  OC_BOOT_ENTRY              *BootEntry,
+  OUT VOID                       **ImageData,
+  OUT UINT32                     *DataLength
+  )
+{
+  EFI_STATUS                       Status;
+  CHAR16                           *BootDirectoryName;
+  EFI_HANDLE                       Device;
+  EFI_HANDLE                       ApfsVolumeHandle;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
+
+  *ImageData = NULL;
+  *DataLength = 0;
+
+  if (BootEntry->Type == OC_BOOT_EXTERNAL_TOOL || BootEntry->Type == OC_BOOT_RESET_NVRAM) {
+    ASSERT (Context->CustomDescribe != NULL);
+
+    Status = Context->CustomDescribe (
+      Context->CustomEntryContext,
+      BootEntry,
+      0,
+      ImageData,
+      DataLength,
+      NULL,
+      NULL
+      );
+
+    DEBUG ((DEBUG_INFO, "Get custom icon %s - %r\n", BootEntry->Name, Status));
+    return Status;
+  }
+
+  ASSERT (BootEntry->DevicePath != NULL);
+
+  Status = BootPolicy->DevicePathToDirPath (
+    BootEntry->DevicePath,
+    &BootDirectoryName,
+    &Device,
+    &ApfsVolumeHandle
+    );
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = gBS->HandleProtocol (
+    Device,
+    &gEfiSimpleFileSystemProtocolGuid,
+    (VOID **) &FileSystem
+    );
+
+  if (EFI_ERROR (Status)) {
+    FreePool (BootDirectoryName);
+    return Status;
+  }
+
+  Status = InternalGetAppleImage (
+    FileSystem,
+    L"",
+    L".VolumeIcon.icns",
+    ImageData,
+    DataLength
+    );
+
+  DEBUG ((DEBUG_INFO, "OCB: Get normal icon %s - %r\n", BootEntry->Name, Status));
+
+  FreePool (BootDirectoryName);
+
+  return Status;
 }
 
 VOID
@@ -490,7 +640,7 @@ OcScanForBootEntries (
         return EFI_OUT_OF_RESOURCES;
       }
 
-      Entries[EntryIndex].Type         = OC_BOOT_SYSTEM;
+      Entries[EntryIndex].Type         = OC_BOOT_RESET_NVRAM;
       Entries[EntryIndex].IsAuxiliary  = TRUE;
       Entries[EntryIndex].SystemAction = InternalSystemActionResetNvram;
       ++EntryIndex;
@@ -521,7 +671,7 @@ OcLoadBootEntry (
   EFI_HANDLE                 EntryHandle;
   INTERNAL_DMG_LOAD_CONTEXT  DmgLoadContext;
 
-  if (BootEntry->Type == OC_BOOT_SYSTEM) {
+  if ((BootEntry->Type & OC_BOOT_SYSTEM) != 0) {
     ASSERT (BootEntry->SystemAction != NULL);
     return BootEntry->SystemAction ();
   }

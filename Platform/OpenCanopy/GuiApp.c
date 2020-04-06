@@ -7,6 +7,7 @@
 
 #include <Uefi.h>
 
+#include <IndustryStandard/AppleIcon.h>
 #include <Protocol/OcInterface.h>
 
 #include <Library/DebugLib.h>
@@ -14,12 +15,48 @@
 #include <Library/OcBootManagementLib.h>
 #include <Library/OcStorageLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Library/PrintLib.h>
+#include <Library/BaseLib.h>
+
+#include <Guid/AppleVariable.h>
 
 #include "OpenCanopy.h"
 #include "BmfLib.h"
 #include "GuiApp.h"
 
 GLOBAL_REMOVE_IF_UNREFERENCED BOOT_PICKER_GUI_CONTEXT mGuiContext = { { { 0 } } };
+
+STATIC
+CONST CHAR8 *
+mLabelNames[LABEL_NUM_TOTAL] = {
+  [LABEL_GENERIC_HDD]          = "EFIBoot",
+  [LABEL_APPLE]                = "Apple",
+  [LABEL_APPLE_RECOVERY]       = "AppleRecv",
+  [LABEL_APPLE_TIME_MACHINE]   = "AppleTM",
+  [LABEL_WINDOWS]              = "Windows",
+  [LABEL_OTHER]                = "Other",
+  [LABEL_TOOL]                 = "Tool",
+  [LABEL_RESET_NVRAM]          = "ResetNVRAM",
+  [LABEL_SHELL]                = "Shell"
+};
+
+STATIC
+CONST CHAR8 *
+mIconNames[ICON_NUM_TOTAL] = {
+  [ICON_CURSOR]             = "Cursor",
+  [ICON_SELECTED]           = "Selected",
+  [ICON_SELECTOR]           = "Selector",
+  [ICON_GENERIC_HDD]        = "HardDrive",
+  [ICON_APPLE]              = "Apple",
+  [ICON_APPLE_RECOVERY]     = "AppleRecv",
+  [ICON_APPLE_TIME_MACHINE] = "AppleTM",
+  [ICON_WINDOWS]            = "Windows",
+  [ICON_OTHER]              = "Other",
+  [ICON_TOOL]               = "Tool",
+  [ICON_RESET_NVRAM]        = "ResetNVRAM",
+  [ICON_SHELL]              = "Shell"
+};
 
 STATIC
 VOID
@@ -38,42 +75,175 @@ InternalContextDestruct (
   IN OUT BOOT_PICKER_GUI_CONTEXT  *Context
   )
 {
-  InternalSafeFreePool (Context->Cursor.Buffer);
-  InternalSafeFreePool (Context->EntryBackSelected.Buffer);
-  InternalSafeFreePool (Context->EntrySelector.BaseImage.Buffer);
-  InternalSafeFreePool (Context->EntrySelector.HoldImage.Buffer);
-  InternalSafeFreePool (Context->EntryIconInternal.Buffer);
-  InternalSafeFreePool (Context->EntryIconInternal.Buffer);
-  InternalSafeFreePool (Context->EntryIconExternal.Buffer);
-  InternalSafeFreePool (Context->EntryIconExternal.Buffer);
+  UINT32  Index;
+  UINT32  Index2;
+
+  for (Index = 0; Index < ICON_NUM_TOTAL; ++Index) {
+    for (Index2 = 0; Index2 < ICON_TYPE_COUNT; ++Index2) {
+      InternalSafeFreePool (Context->Icons[Index][Index2].Buffer);
+    }
+  }
+
+  for (Index = 0; Index < LABEL_NUM_TOTAL; ++Index) {
+    InternalSafeFreePool (Context->Labels[Index].Buffer);
+  }
+
   InternalSafeFreePool (Context->FontContext.FontImage.Buffer);
+  /*
+  InternalSafeFreePool (Context->Poof[0].Buffer);
+  InternalSafeFreePool (Context->Poof[1].Buffer);
+  InternalSafeFreePool (Context->Poof[2].Buffer);
+  InternalSafeFreePool (Context->Poof[3].Buffer);
+  InternalSafeFreePool (Context->Poof[4].Buffer);
+  */
 }
 
-
+STATIC
 RETURN_STATUS
-LoadImageFromStorage (
-  IN  OC_STORAGE_CONTEXT                   *Storage,
-  IN  CONST CHAR16                         *ImageFilePath,
-  OUT VOID                                 *Image,
-  IN  CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *HighlightPixel  OPTIONAL
+LoadImageFileFromStorage (
+  OUT GUI_IMAGE                *Images,
+  IN  OC_STORAGE_CONTEXT       *Storage,
+  IN  CONST CHAR8              *ImageFilePath,
+  IN  UINT8                    Scale,
+  IN  UINT32                   MatchWidth,
+  IN  UINT32                   MatchHeight,
+  IN  BOOLEAN                  Icon,
+  IN  BOOLEAN                  Old
   )
 {
-  VOID          *ImageData;
-  UINT32        ImageSize;
-  RETURN_STATUS Status;
+  EFI_STATUS    Status;
+  CHAR16        Path[OC_STORAGE_SAFE_PATH_MAX];
+  UINT8         *FileData;
+  UINT32        FileSize;
+  UINT32        ImageCount;
+  UINT32        Index;
 
-  ImageData = OcStorageReadFileUnicode (Storage, ImageFilePath, &ImageSize);
-  if (ImageData == NULL) {
-    return EFI_NOT_FOUND;
+  ASSERT (ImageFilePath != NULL);
+  ASSERT (Scale == 1 || Scale == 2);
+
+  ImageCount = Icon ? ICON_TYPE_COUNT : 1; ///< Icons can be external.
+
+  for (Index = 0; Index < ImageCount; ++Index) {
+    Status = OcUnicodeSafeSPrint (
+      Path,
+      sizeof (Path),
+      OPEN_CORE_IMAGE_PATH L"%a%a%a.icns",
+      Old ? "Old" : "",
+      Index > 0 ? "Ext" : "",
+      ImageFilePath
+      );
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_WARN, "OCUI: Cannot fit %a\n", ImageFilePath));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    Status = EFI_NOT_FOUND;
+    if (OcStorageExistsFileUnicode (Storage, Path)) {
+      FileData = OcStorageReadFileUnicode (Storage, Path, &FileSize);
+      if (FileData != NULL && FileSize > 0) {
+        Status = GuiIcnsToImageIcon (
+          &Images[Index],
+          FileData,
+          FileSize,
+          Scale,
+          MatchWidth,
+          MatchHeight
+          );
+      }
+
+      if (FileData != NULL) {
+        FreePool (FileData);
+      }
+    }
+
+    if (EFI_ERROR (Status)) {
+      DEBUG ((
+        DEBUG_INFO,
+        "OCUI: Failed to load image (%u/%u) %s old:%d icon:%d - %r\n",
+        Index+1,
+        ImageCount,
+        Path,
+        Old,
+        Icon,
+        Status
+        ));
+      return Index == ICON_TYPE_BASE ? RETURN_NOT_FOUND : RETURN_SUCCESS;
+    }
   }
 
-  if (HighlightPixel != NULL) {
-    Status  = GuiPngToClickImage (Image, ImageData, ImageSize, HighlightPixel);
-  } else {
-    Status  = GuiPngToImage (Image, ImageData, ImageSize);
+  return RETURN_SUCCESS;
+}
+
+STATIC
+RETURN_STATUS
+LoadLabelFileFromStorageForScale (
+  IN  OC_STORAGE_CONTEXT       *Storage,
+  IN  CONST CHAR8              *LabelFilePath,
+  IN  UINT8                    Scale,
+  OUT VOID                     **FileData,
+  OUT UINT32                   *FileSize
+  )
+{
+  EFI_STATUS    Status;
+  CHAR16        Path[OC_STORAGE_SAFE_PATH_MAX];
+
+  ASSERT (Scale == 1 || Scale == 2);
+
+  Status = OcUnicodeSafeSPrint (
+    Path,
+    sizeof (Path),
+    OPEN_CORE_LABEL_PATH L"%a.%a",
+    LabelFilePath,
+    Scale == 2 ? "l2x" : "lbl"
+    );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_WARN, "OCUI: Cannot fit %a\n", LabelFilePath));
+    return EFI_OUT_OF_RESOURCES;
   }
+
+  *FileData = OcStorageReadFileUnicode (Storage, Path, FileSize);
+
+  if (*FileData == NULL) {
+    DEBUG ((DEBUG_WARN, "OCUI: Failed to load %s\n", Path));
+    return RETURN_NOT_FOUND;
+  }
+
+  if (*FileSize == 0) {
+    FreePool (*FileData);
+    DEBUG ((DEBUG_WARN, "OCUI: Empty %s\n", Path));
+    return RETURN_NOT_FOUND; 
+  }
+
+  return RETURN_SUCCESS;
+}
+
+RETURN_STATUS
+LoadLabelFromStorage (
+  IN  OC_STORAGE_CONTEXT       *Storage,
+  IN  CONST CHAR8              *ImageFilePath,
+  IN  UINT8                    Scale,
+  IN  BOOLEAN                  Inverted,
+  OUT GUI_IMAGE                *Image
+  )
+{
+  VOID           *ImageData;
+  UINT32         ImageSize;
+  RETURN_STATUS  Status;
+
+  ASSERT (Scale == 1 || Scale == 2);
+
+  Status = LoadLabelFileFromStorageForScale (Storage, ImageFilePath, Scale, &ImageData, &ImageSize);
+  if (RETURN_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = GuiLabelToImage (Image, ImageData, ImageSize, Scale, Inverted);
 
   FreePool (ImageData);
+
+  if (RETURN_ERROR (Status)) {
+    DEBUG ((DEBUG_WARN, "OCUI: Failed to decode label %a - %r\n", ImageFilePath, Status));
+  }
 
   return Status;
 }
@@ -84,34 +254,111 @@ InternalContextConstruct (
   IN  OC_STORAGE_CONTEXT       *Storage
   )
 {
-  STATIC CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL HighlightPixel = {
-    0xAF, 0xAF, 0xAF, 0x32
-  };
-
   RETURN_STATUS Status;
   BOOLEAN       Result;
   VOID          *FontImage;
   VOID          *FontData;
   UINT32        FontImageSize;
   UINT32        FontDataSize;
+  UINTN         UiScaleSize;
+  UINT32        Index;
+  UINT32        ImageDimension;
+  BOOLEAN       Old;
 
   ASSERT (Context != NULL);
 
+  Context->Scale = 1;
+  UiScaleSize = sizeof (Context->Scale);
+
+  Status = gRT->GetVariable (
+    APPLE_UI_SCALE_VARIABLE_NAME,
+    &gAppleVendorVariableGuid,
+    NULL,
+    &UiScaleSize,
+    (VOID *) &Context->Scale
+    );
+
+  if (EFI_ERROR (Status) || Context->Scale != 2) {
+    Context->Scale = 1;
+  }
+
+  // FIXME: Add support for 2x scaling.
+  Context->Scale = 1;
+
+  // FIXME: Add support for old set.
+  Old = FALSE;
+
+  // FIXME: Add support for light background.
+  Context->Light = Old;
+
   Context->BootEntry = NULL;
 
-  Status  = LoadImageFromStorage (Storage, L"Resources\\Image\\Cursor.png", &Context->Cursor, NULL);
-  Status |= LoadImageFromStorage (Storage, L"Resources\\Image\\Selected.png", &Context->EntryBackSelected, NULL);
-  Status |= LoadImageFromStorage (Storage, L"Resources\\Image\\Selector.png", &Context->EntrySelector, &HighlightPixel);
-  Status |= LoadImageFromStorage (Storage, L"Resources\\Image\\InternalHardDrive.png", &Context->EntryIconInternal, NULL);
-  Status |= LoadImageFromStorage (Storage, L"Resources\\Image\\ExternalHardDrive.png", &Context->EntryIconExternal, NULL);
+  Status = EFI_SUCCESS;
+
+  for (Index = 0; Index < ICON_NUM_TOTAL; ++Index) {
+    if (Index == ICON_CURSOR) {
+      ImageDimension = CURSOR_DIMENSION;
+    } else if (Index == ICON_SELECTED) {
+      ImageDimension = BOOT_SELECTOR_BACKGROUND_DIMENSION;
+    } else if (Index == ICON_SELECTED) {
+      ImageDimension = BOOT_SELECTOR_BUTTON_DIMENSION;
+    } else {
+      ImageDimension = BOOT_ENTRY_ICON_DIMENSION;
+    }
+
+    Status = LoadImageFileFromStorage (
+      Context->Icons[Index],
+      Storage,
+      mIconNames[Index],
+      Context->Scale,
+      ImageDimension,
+      ImageDimension,
+      Index < ICON_NUM_SYS,
+      Old
+      );
+
+    if (!EFI_ERROR (Status) && Index == ICON_SELECTOR) {
+      //
+      // FIXME: Should this really be hardcoded?
+      // Maybe move at least somewhere.
+      //
+      STATIC CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL HighlightPixel = {
+        0xAF, 0xAF, 0xAF, 0x32
+      };
+      Status = GuiCreateHighlightedImage (
+        &Context->Icons[Index][ICON_TYPE_BASE],
+        &Context->Icons[Index][ICON_TYPE_HELD],
+        &HighlightPixel
+        );
+    }
+
+    if (EFI_ERROR (Status) && Index < ICON_NUM_MANDATORY) {
+      break;
+    } else {
+      Status = EFI_SUCCESS;
+    }
+  }
+
+  if (!EFI_ERROR (Status)) {
+    for (Index = 0; Index < LABEL_NUM_TOTAL; ++Index) {
+      Status |= LoadLabelFromStorage (
+        Storage,
+        mLabelNames[Index],
+        Context->Scale,
+        Context->Light,
+        &Context->Labels[Index]
+        );
+    }
+  }
 
   if (RETURN_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "OCUI: Failed to load images\n"));
     InternalContextDestruct (Context);
     return RETURN_UNSUPPORTED;
   }
 
-  FontImage = OcStorageReadFileUnicode (Storage, L"Resources\\Font\\Font.png", &FontImageSize);
-  FontData  = OcStorageReadFileUnicode (Storage, L"Resources\\Font\\Font.bin", &FontDataSize);
+  FontImage = OcStorageReadFileUnicode (Storage, OPEN_CORE_FONT_PATH L"Font.png", &FontImageSize);
+  FontData  = OcStorageReadFileUnicode (Storage, OPEN_CORE_FONT_PATH L"Font.bin", &FontDataSize);
 
   if (FontImage != NULL && FontData != NULL) {
     Result = GuiFontConstruct (
@@ -121,16 +368,19 @@ InternalContextConstruct (
       FontData,
       FontDataSize
       );
+    if (Context->FontContext.BmfContext.Height  != BOOT_ENTRY_LABEL_HEIGHT) {
+      Result = FALSE;
+    }
   } else {
     Result = FALSE;
   }
 
   if (!Result) {
-    DEBUG ((DEBUG_WARN, "BMF: Font failed\n"));
+    DEBUG ((DEBUG_WARN, "OCUI: Font init failed\n"));
     InternalContextDestruct (Context);
     return RETURN_UNSUPPORTED;
   }
-
+  
   return RETURN_SUCCESS;
 }
 
@@ -146,7 +396,7 @@ InternalGetCursorImage (
   ASSERT (Context != NULL);
 
   GuiContext = (CONST BOOT_PICKER_GUI_CONTEXT *)Context;
-  return &GuiContext->Cursor;
+  return &GuiContext->Icons[ICON_CURSOR][ICON_TYPE_BASE];
 }
 
 EFI_STATUS

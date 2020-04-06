@@ -5,8 +5,8 @@
   SPDX-License-Identifier: BSD-3-Clause
 **/
 
-#ifndef BOOT_LIQUOR_H
-#define BOOT_LIQUOR_H
+#ifndef OPEN_CANOPY_H
+#define OPEN_CANOPY_H
 
 #include <Protocol/GraphicsOutput.h>
 #include <Protocol/SimpleTextIn.h>
@@ -98,11 +98,6 @@ typedef struct {
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL *Buffer;
 } GUI_IMAGE;
 
-typedef struct {
-  GUI_IMAGE BaseImage;
-  GUI_IMAGE HoldImage;
-} GUI_CLICK_IMAGE;
-
 typedef struct GUI_SCREEN_CURSOR_ GUI_SCREEN_CURSOR;
 
 typedef
@@ -132,13 +127,33 @@ struct GUI_DRAWING_CONTEXT_ {
   GUI_EXIT_LOOP        ExitLoop;
   LIST_ENTRY           Animations;
   VOID                 *GuiContext;
+  UINT8                Scale;
 };
 
 RETURN_STATUS
 GuiPngToImage (
-  IN OUT GUI_IMAGE  *Image,
-  IN     VOID       *ImageData,
-  IN     UINTN      ImageDataSize
+  OUT GUI_IMAGE  *Image,
+  IN  VOID       *ImageData,
+  IN  UINT32     ImageDataSize
+  );
+  
+RETURN_STATUS
+GuiIcnsToImageIcon (
+  OUT GUI_IMAGE  *Image,
+  IN  VOID       *IcnsImage,
+  IN  UINT32     IcnsImageSize,
+  IN  UINT8      Scale,
+  IN  UINT32     MatchWidth,
+  IN  UINT32     MatchHeight
+  );
+
+RETURN_STATUS
+GuiLabelToImage (
+  OUT GUI_IMAGE *Image,
+  IN  VOID      *RawData,
+  IN  UINT32    DataLength,
+  IN  UINT8     Scale,
+  IN  BOOLEAN   Inverted
   );
 
 VOID
@@ -267,12 +282,4 @@ GuiGetInterpolatedValue (
   IN       UINT64             CurrentTime
   );
 
-RETURN_STATUS
-GuiPngToClickImage (
-  IN OUT GUI_CLICK_IMAGE                      *Image,
-  IN     VOID                                 *BmpImage,
-  IN     UINTN                                BmpImageSize,
-  IN     CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *HighlightPixel
-  );
-
-#endif // BOOT_LIQUOR_H
+#endif // OPEN_CANOPY_H
