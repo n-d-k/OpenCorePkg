@@ -121,7 +121,6 @@ fi
 if [ "$(which mtoc)" == "" ]; then
   echo "Missing mtoc or mtoc.NEW!"
   echo "To build mtoc follow: https://github.com/tianocore/tianocore.github.io/wiki/Xcode#mac-os-x-xcode"
-  prompt "Install prebuilt mtoc and mtoc.NEW automatically?"
   pushd /tmp >/dev/null
   rm -f mtoc mtoc-mac64.zip
   curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/mtoc-mac64.zip" || exit 1
