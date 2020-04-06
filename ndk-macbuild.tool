@@ -118,32 +118,21 @@ if [ "$(nasm -v)" = "" ] || [ "$(nasm -v | grep Apple)" != "" ]; then
   popd >/dev/null
 fi
 
-mtoc_hash=$(curl -L "https://github.com/acidanthera/ocbuild/raw/master/external/mtoc-mac64.sha256") || exit 1
-
-if [ "${mtoc_hash}" = "" ]; then
-  echo "Cannot obtain the latest compatible mtoc hash!"
-  exit 1
-fi
-
-valid_mtoc=false
-if [ "$(which mtoc)" != "" ]; then
-  mtoc_path=$(which mtoc)
-  mtoc_hash_user=$(shasum -a 256 "${mtoc_path}" | cut -d' ' -f1)
-  if [ "${mtoc_hash}" = "${mtoc_hash_user}" ]; then
-    valid_mtoc=true
-  elif [ "${IGNORE_MTOC_VERSION}" = "1" ]; then
-    echo "Forcing the use of UNKNOWN mtoc version due to IGNORE_MTOC_VERSION=1"
-    valid_mtoc=true
-  elif [ "${mtoc_path}" != "/usr/local/bin/mtoc" ]; then
-    echo "Custom UNKNOWN mtoc is installed to ${mtoc_path}!"
-    echo "Hint: Remove this mtoc or use IGNORE_MTOC_VERSION=1 at your own risk."
-    exit 1
-  else
-    echo "Found incompatible mtoc installed to ${mtoc_path}!"
-    echo "Expected SHA-256: ${mtoc_hash}"
-    echo "Found SHA-256:    ${mtoc_hash_user}"
-    echo "Hint: Reinstall this mtoc or use IGNORE_MTOC_VERSION=1 at your own risk."
-  fi
+if [ "$(which mtoc)" == "" ]; then
+  echo "Missing mtoc or mtoc.NEW!"
+  echo "To build mtoc follow: https://github.com/tianocore/tianocore.github.io/wiki/Xcode#mac-os-x-xcode"
+  prompt "Install prebuilt mtoc and mtoc.NEW automatically?"
+  pushd /tmp >/dev/null
+  rm -f mtoc mtoc-mac64.zip
+  curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/mtoc-mac64.zip" || exit 1
+  mtoczip=$(cat mtoc-mac64.zip)
+  rm -rf mtoc-*
+  curl -OL "https://github.com/acidanthera/ocbuild/raw/master/external/${mtoczip}" || exit 1
+  unzip -q mtoc-mac64.zip mtoc || exit 1
+  sudo mkdir -p /usr/local/bin || exit 1
+  sudo cp mtoc /usr/local/bin/mtoc || exit 1
+  sudo mv mtoc /usr/local/bin/mtoc.NEW || exit 1
+  popd >/dev/null
 fi
 
 if ! $valid_mtoc; then
