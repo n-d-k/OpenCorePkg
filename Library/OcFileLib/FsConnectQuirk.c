@@ -103,6 +103,14 @@ OcUnblockUnmountedPartitions (
                         DiskIoInfos[DiskIoInfoIndex].AgentHandle,
                         NULL
                         );
+        if (EFI_ERROR (Status)) {
+          DEBUG ((
+            DEBUG_INFO,
+            "OCFSQ: Failed to unblock handle %p - %r\n",
+            Handles[HandleIndex],
+            Status
+            ));
+        }
       }
     }
 
