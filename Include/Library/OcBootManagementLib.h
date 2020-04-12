@@ -825,26 +825,6 @@ OcLoadPickerHotKeys (
 #define OC_INPUT_FUNCTIONAL(x) (-20 - (x))  ///< Functional hotkeys
 
 /**
-  Obtains key index from user input.
-
-  @param[in,out]  Context      Picker context.
-  @param[in]      KeyMap       Apple Key Map Aggregator protocol.
-  @param[in]      Time         Timeout to wait for in milliseconds.
-  @param[in]      PollHotkeys  Poll key combinations.
-  @param[out]     SetDefault   Set boot option as default, optional.
-
-  @returns key index [0, OC_INPUT_MAX) or OC_INPUT_* value.
-**/
-INTN
-OcWaitForAppleKeyIndex (
-  IN OUT OC_PICKER_CONTEXT                  *Context,
-  IN     APPLE_KEY_MAP_AGGREGATOR_PROTOCOL  *KeyMap,
-  IN     UINTN                              Timeout,
-  IN     BOOLEAN                            PollHotkeys,
-     OUT BOOLEAN                            *SetDefault  OPTIONAL
-  );
-
-/**
   Install missing boot policy, scan, and show simple boot menu.
 
   @param[in]  Context       Picker context.
