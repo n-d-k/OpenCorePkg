@@ -395,4 +395,17 @@ CreateFvFileDevicePath (
   IN EFI_GUID  *FileGuid
   );
 
+/**
+  Verify File exist from full file DevicePath .
+
+  @param[in]  Full File DevicePath.
+
+  @retval TRUE if file exist.
+  @retval FALSE if file doesn't exist.
+**/
+BOOLEAN
+IsFileDevicePathValid (
+  IN EFI_DEVICE_PATH_PROTOCOL      *DevicePath
+  );
+
 #endif // OC_FILE_LIB_H

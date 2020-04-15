@@ -25,10 +25,39 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcDebugLogLib.h>
 #include <Library/OcStringLib.h>
 #include <Library/PrintLib.h>
+#include <Library/OcFileLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
 #include <Protocol/OcInterface.h>
+
+/* Verify custom entry path */
+STATIC
+BOOLEAN
+IsCustomEntryPathValid (
+  IN CONST CHAR8                *Path
+  )
+{
+  CHAR16                        *FilePath;
+  EFI_DEVICE_PATH_PROTOCOL      *DevicePath;
+  
+  FilePath = AsciiStrCopyToUnicode (Path, 0);
+  if (FilePath == NULL) {
+    return FALSE;
+  }
+  
+  DevicePath = ConvertTextToDevicePath (FilePath);
+  if (DevicePath != NULL) {
+    if (IsFileDevicePathValid (DevicePath)) {
+      FreePool (FilePath);
+      FreePool (DevicePath);
+      return TRUE;
+    }
+    FreePool (DevicePath);
+  }
+  FreePool (FilePath);
+  return FALSE;
+}
 
 STATIC
 VOID
@@ -647,7 +676,7 @@ OcMiscBoot (
   }
 
   for (Index = 0, EntryIndex = 0; Index < Config->Misc.Entries.Count; ++Index) {
-    if (Config->Misc.Entries.Values[Index]->Enabled) {
+    if (Config->Misc.Entries.Values[Index]->Enabled && IsCustomEntryPathValid (OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path))) {
       Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
       Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
       Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);

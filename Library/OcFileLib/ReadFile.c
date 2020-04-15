@@ -149,3 +149,57 @@ ReadFileSize (
 
   return Status;
 }
+
+/* Ensure user's custom entry devicepath valid and file exist */
+BOOLEAN
+IsFileDevicePathValid (
+  IN EFI_DEVICE_PATH_PROTOCOL      *DevicePath
+  )
+{
+  EFI_STATUS                       Status;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
+  CONST CHAR16                     *FilePath;
+  CHAR16                           *DevicePathText;
+  EFI_HANDLE                       DeviceHandle;
+  EFI_DEVICE_PATH_PROTOCOL         *DevicePathNode;
+  EFI_FILE_HANDLE                  Volume;
+  EFI_FILE_PROTOCOL                *File;
+  
+  DevicePathNode = DevicePath;
+  Status = gBS->LocateDevicePath (&gEfiSimpleFileSystemProtocolGuid, &DevicePathNode, &DeviceHandle);
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+  
+  Status = gBS->HandleProtocol (
+             DeviceHandle,
+             &gEfiSimpleFileSystemProtocolGuid,
+             (VOID **) &FileSystem
+             );
+  
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+  
+  DevicePathText = ConvertDevicePathToText (DevicePath, FALSE, FALSE);
+  if (DevicePathText != NULL) {
+    FilePath = StrStr (DevicePathText, L"\\") + 1;
+    FreePool (DevicePathText);
+  }
+  
+  if (FileSystem != NULL) {
+    Status = FileSystem->OpenVolume (FileSystem, &Volume);
+    if (EFI_ERROR (Status)) {
+      return FALSE;
+    }
+    
+    Status = SafeFileOpen (Volume, &File, (CHAR16 *) FilePath, EFI_FILE_MODE_READ, 0);
+    Volume->Close (Volume);
+    
+    if (!EFI_ERROR (Status)) {
+      File->Close (File);
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
