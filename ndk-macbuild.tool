@@ -213,7 +213,8 @@ fi
 
 updaterepo "https://github.com/tianocore/edk2.git" edk2 master || exit 1
 cd edk2
-git checkout 8c654bb3ec0b5232dec2b2b07234c5479eb14d62
+git checkout master
+git submodule update --init
 updaterepo "https://github.com/acidanthera/EfiPkg" EfiPkg master || exit 1
 updaterepo "https://github.com/acidanthera/MacInfoPkg" MacInfoPkg master || exit 1
 

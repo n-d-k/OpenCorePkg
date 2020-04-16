@@ -49,13 +49,68 @@ IsCustomEntryPathValid (
   DevicePath = ConvertTextToDevicePath (FilePath);
   if (DevicePath != NULL) {
     if (IsFileDevicePathValid (DevicePath)) {
+      DEBUG ((DEBUG_INFO, "OC: Custom entry path %s\n", FilePath));
       FreePool (FilePath);
       FreePool (DevicePath);
       return TRUE;
     }
     FreePool (DevicePath);
   }
+  
+  DEBUG ((DEBUG_INFO, "OC: Invalid custom entry path %s\n", FilePath));
   FreePool (FilePath);
+  return FALSE;
+}
+
+/* Verify tool entry path */
+STATIC
+BOOLEAN
+IsToolPathValid (
+  IN OC_STORAGE_CONTEXT            *Storage,
+  IN CONST CHAR8                   *Path
+  )
+{
+  EFI_STATUS                       Status;
+  EFI_FILE_HANDLE                  Volume;
+  EFI_SIMPLE_FILE_SYSTEM_PROTOCOL  *FileSystem;
+  EFI_FILE_PROTOCOL                *File;
+  CHAR16                           *ToolPath;
+  CHAR16                           *FilePath;
+  
+  FilePath = AsciiStrCopyToUnicode (Path, 0);
+  if (FilePath == NULL) {
+    return FALSE;
+  }
+  
+  ToolPath = AllocatePool (StrSize (FilePath) + L_STR_SIZE (L"EFI\\OC\\Tools\\"));
+  Status = UnicodeSPrint (
+             ToolPath,
+             StrSize (ToolPath),
+             L"EFI\\OC\\Tools\\%s",
+             FilePath
+             );
+  
+  FreePool (FilePath);
+  if (!EFI_ERROR (Status)) {
+    FileSystem = Storage->FileSystem;
+    if (FileSystem != NULL) {
+      Status = FileSystem->OpenVolume (FileSystem, &Volume);
+      if (!EFI_ERROR (Status)) {
+        Status = SafeFileOpen (Volume, &File, (CHAR16 *) ToolPath, EFI_FILE_MODE_READ, 0);
+        Volume->Close (Volume);
+        if (!EFI_ERROR (Status)) {
+          File->Close (File);
+          FreePool (ToolPath);
+          return TRUE;
+        }
+      }
+    }
+  }
+  
+  if (ToolPath != NULL) {
+    DEBUG ((DEBUG_INFO, "OC: Invalid tool path %s\n", ToolPath));
+    FreePool (ToolPath);
+  }
   return FALSE;
 }
 
@@ -676,13 +731,15 @@ OcMiscBoot (
   }
 
   for (Index = 0, EntryIndex = 0; Index < Config->Misc.Entries.Count; ++Index) {
-    if (Config->Misc.Entries.Values[Index]->Enabled && IsCustomEntryPathValid (OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path))) {
-      Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
-      Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
-      Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);
-      Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Entries.Values[Index]->Auxiliary;
-      Context->CustomEntries[EntryIndex].Tool      = FALSE;
-      ++EntryIndex;
+    if (Config->Misc.Entries.Values[Index]->Enabled) {
+      if (IsCustomEntryPathValid (OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path))) {
+        Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
+        Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
+        Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);
+        Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Entries.Values[Index]->Auxiliary;
+        Context->CustomEntries[EntryIndex].Tool      = FALSE;
+        ++EntryIndex;
+      }
     }
   }
 
@@ -693,12 +750,14 @@ OcMiscBoot (
   //
   for (Index = 0; Index < Config->Misc.Tools.Count; ++Index) {
     if (Config->Misc.Tools.Values[Index]->Enabled) {
-      Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Name);
-      Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path);
-      Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Arguments);
-      Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Tools.Values[Index]->Auxiliary;
-      Context->CustomEntries[EntryIndex].Tool      = TRUE;
-      ++EntryIndex;
+      if (IsToolPathValid (Storage, OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path))) {
+        Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Name);
+        Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path);
+        Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Arguments);
+        Context->CustomEntries[EntryIndex].Auxiliary = Config->Misc.Tools.Values[Index]->Auxiliary;
+        Context->CustomEntries[EntryIndex].Tool      = TRUE;
+        ++EntryIndex;
+      }
     }
   }
 
