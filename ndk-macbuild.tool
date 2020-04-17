@@ -60,6 +60,8 @@ package() {
   cp OpenCore.efi tmp/EFI/OC/ || exit 1
   cp BOOTx64.efi tmp/EFI/BOOT/ || exit 1
   cp OpenUsbKbDxe.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp Ps2MouseDxe.efi tmp/EFI/OC/Drivers/ || exit 1
+  cp UsbMouseDxe.efi tmp/EFI/OC/Drivers/ || exit 1
   cp OpenRuntime.efi tmp/EFI/OC/Drivers/ || exit 1
   cp HiiDatabase.efi tmp/EFI/OC/Drivers/ || exit 1
   cp MmapDump.efi tmp/EFI/OC/Tools/ || exit 1

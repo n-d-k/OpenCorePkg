@@ -560,7 +560,7 @@ OcLoadUefiSupport (
 
   gBS->CreateEvent (
     EVT_SIGNAL_EXIT_BOOT_SERVICES,
-    TPL_NOTIFY,
+    TPL_CALLBACK,
     OcExitBootServicesHandler,
     Config,
     &Event
