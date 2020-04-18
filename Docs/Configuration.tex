@@ -561,7 +561,7 @@ Required external package dependencies include
 
 To compile with \texttt{XCODE5}, besides \href{https://developer.apple.com/xcode}{Xcode},
 one should also install \href{https://www.nasm.us}{NASM} and
-\href{https://github.com/acidanthera/ocbuild/raw/master/external/mtoc-mac64.zip}{MTOC}.
+\href{https://github.com/acidanthera/ocbuild/tree/master/external}{MTOC}.
 The latest Xcode version is recommended for use despite the toolchain name. Example
 command sequence may look as follows:
 
@@ -1974,6 +1974,21 @@ blocking.
   \emph{Note}: This option is a preferred alternative to dropping \texttt{DMAR}
   ACPI table and disabling VT-d in firmware preferences, which does not break
   VT-d support in other systems in case they need it.
+
+\item
+  \texttt{DisableRtcChecksum}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: Disables primary checksum (\texttt{0x58}-\texttt{0x59})
+  writing in AppleRTC.
+
+  \emph{Note 1}: This option will not protect other areas from being overwritten,
+  see \href{https://github.com/acidanthera/RTCMemoryFixup}{RTCMemoryFixup}
+  kernel extension if this is desired.
+
+  \emph{Note 2}: This option will not protect areas from being overwritten
+  at firmware stage (e.g. macOS bootloader), see \texttt{RTC} (FIXME) section
+  if this is desired.
 
 \item
   \texttt{DummyPowerManagement}\\
@@ -4029,6 +4044,8 @@ Some of the known tools are listed below (builtin tools are marked with \textbf{
   with a broad range of firmwares. \\
 \href{https://github.com/acidanthera/OpenCorePkg}{\texttt{PavpProvision}}
 & Perform EPID provisioning (requires certificate data configuration). \\
+\href{https://github.com/acidanthera/OpenCorePkg}{\texttt{RtcRw}}\textbf{*}
+& Utility to read and write RTC (CMOS) memory. \\
 \href{https://github.com/acidanthera/OpenCorePkg}{\texttt{VerifyMsrE2}}\textbf{*}
 & Check \texttt{CFG Lock} (MSR \texttt{0xE2} write protection) consistency across all cores.
 \end{tabular}
@@ -4221,6 +4238,15 @@ functioning. Feature highlights:
   \textbf{Failsafe}: None\\
   \textbf{Description}: Apply individual firmware quirks described in
   \hyperref[uefiquirkprops]{Quirks Properties} section below.
+
+\item
+  \texttt{ReservedMemory}\\
+  \textbf{Type}: \texttt{plist\ array}\\
+  \textbf{Description}: Designed to be filled with \texttt{plist\ dict} values,
+  describing memory areas exquisite to particular firmware and hardware functioning,
+  which should not be used by the operating system. An example of such memory region
+  could be second 256 MB corrupted by Intel HD 3000 or an area with faulty RAM.
+  See \hyperref[uefirsvdprops]{ReservedMemory Properties} section below.
 
 \end{enumerate}
 
@@ -4974,6 +5000,42 @@ functioning. Feature highlights:
   in By Driver mode, which results in File System protocols being unable to install.
 
   \emph{Note}: The quirk is mostly relevant for select HP laptops with no drives listed.
+
+\end{enumerate}
+
+\subsection{ReservedMemory Properties}\label{uefirsvdprops}
+
+\begin{enumerate}
+
+\item
+  \texttt{Address}\\
+  \textbf{Type}: \texttt{plist\ integer}\\
+  \textbf{Failsafe}: \texttt{0}\\
+  \textbf{Description}: Start address of the reserved memory region, which should be allocated
+  as reserved effectively marking the memory of this type inaccessible to the operating system.
+
+  The addresses written here must be part of the memory map, have \texttt{EfiConventionalMemory}
+  type, and page-aligned (4 KBs).
+
+\item
+  \texttt{Comment}\\
+  \textbf{Type}: \texttt{plist\ string}\\
+  \textbf{Failsafe}: Empty string\\
+  \textbf{Description}: Arbitrary ASCII string used to provide human readable
+  reference for the entry. It is implementation defined whether this value is
+  used.
+
+\item
+  \texttt{Size}\\
+  \textbf{Type}: \texttt{plist\ integer}\\
+  \textbf{Failsafe}: \texttt{0}\\
+  \textbf{Description}: Size of the reserved memory region, must be page-aligned (4 KBs).
+
+\item
+  \texttt{Enabled}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: This region will not be reserved unless set to \texttt{true}.
 
 \end{enumerate}
 
