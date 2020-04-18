@@ -35,11 +35,16 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 STATIC
 BOOLEAN
 IsCustomEntryPathValid (
-  IN CONST CHAR8                *Path
+  IN CONST CHAR8                *Path,
+  IN BOOLEAN                    Skip
   )
 {
   CHAR16                        *FilePath;
   EFI_DEVICE_PATH_PROTOCOL      *DevicePath;
+  
+  if (Skip) {
+    return TRUE;
+  }
   
   FilePath = AsciiStrCopyToUnicode (Path, 0);
   if (FilePath == NULL) {
@@ -732,7 +737,7 @@ OcMiscBoot (
 
   for (Index = 0, EntryIndex = 0; Index < Config->Misc.Entries.Count; ++Index) {
     if (Config->Misc.Entries.Values[Index]->Enabled) {
-      if (IsCustomEntryPathValid (OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path))) {
+      if (IsCustomEntryPathValid (OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path), Config->Misc.Boot.SkipCustomEntryCheck)) {
         Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Name);
         Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Path);
         Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Entries.Values[Index]->Arguments);
