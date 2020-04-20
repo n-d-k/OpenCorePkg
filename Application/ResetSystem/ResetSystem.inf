@@ -1,7 +1,7 @@
 ## @file
-#  Run Apple Boot Picker.
+#  Reset system in some way.
 #
-#  Copyright (c) 2018, vit9696. All rights reserved.<BR>
+#  Copyright (c) 2020, vit9696. All rights reserved.<BR>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -14,8 +14,8 @@
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = ChipTune
-  FILE_GUID                      = CEFAA9E4-8EFC-4B0A-809D-773AF878EC80
+  BASE_NAME                      = ResetSystem
+  FILE_GUID                      = E0CAD01B-51A1-4591-87FF-EA9216D431BD
   MODULE_TYPE                    = UEFI_APPLICATION
   VERSION_STRING                 = 1.0
   ENTRY_POINT                    = UefiMain
@@ -32,11 +32,7 @@
 #
 
 [Sources]
-  ChipTune.c
-
-[Protocols]
-  gAppleHighDefinitionAudioProtocolGuid
-  gAppleBeepGenProtocolGuid
+  ResetSystem.c
 
 [Packages]
   EfiPkg/EfiPkg.dec
@@ -44,7 +40,10 @@
   OpenCorePkg/OpenCorePkg.dec
 
 [LibraryClasses]
-  OcConsoleLib
+  BaseLib
+  DebugLib
+  OcMiscLib
   UefiApplicationEntryPoint
   UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
   UefiLib
