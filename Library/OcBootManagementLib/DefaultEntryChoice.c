@@ -20,6 +20,7 @@
 #include <Guid/OcVariables.h>
 
 #include <Protocol/LoadedImage.h>
+#include <Protocol/OcFirmwareRuntime.h>
 #include <Protocol/SimpleFileSystem.h>
 
 #include <Library/BaseMemoryLib.h>
@@ -990,6 +991,226 @@ OcSetDefaultBootEntry (
       "OCB: Failed to set default BootOrder - %r\n",
       Status
       ));
+  }
+
+  return Status;
+}
+
+STATIC
+EFI_STATUS
+InternalRegisterBootOption (
+  IN CONST CHAR16    *OptionName,
+  IN EFI_HANDLE      DeviceHandle,
+  IN CONST CHAR16    *FilePath
+  )
+{
+  EFI_STATUS                 Status;
+  EFI_LOAD_OPTION            *Option;
+  UINTN                      OptionNameSize;
+  UINTN                      DevicePathSize;
+  UINTN                      OptionSize;
+  EFI_DEVICE_PATH_PROTOCOL   *DevicePath;
+  EFI_DEVICE_PATH_PROTOCOL   *CurrDevicePath;
+  UINTN                      Index;
+  UINT16                     *BootOrder;
+  UINTN                      BootOrderSize;
+  UINT32                     BootOrderAttributes;
+  UINT16                     NewBootOrder;
+  BOOLEAN                    CurrOptionValid;
+
+  Status = gBS->HandleProtocol (
+    DeviceHandle,
+    &gEfiDevicePathProtocolGuid,
+    (VOID **) &DevicePath
+    );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_INFO, "OCB: Failed to obtain device path for boot option - %r\n", Status));
+    return Status;
+  }
+
+  DevicePath = AppendFileNameDevicePath (DevicePath, (CHAR16 *) FilePath);
+  if (DevicePath == NULL) {
+    DEBUG ((DEBUG_INFO, "OCB: Failed to append %s loader path for boot option - %r\n", FilePath));
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  CurrDevicePath = InternalGetBootOptionData (OC_BOOT_OPTION, &gEfiGlobalVariableGuid, NULL, NULL, NULL);
+  if (CurrDevicePath != NULL) {
+    CurrOptionValid = IsDevicePathEqual (DevicePath, CurrDevicePath);
+    FreePool (CurrDevicePath);
+  } else {
+    CurrOptionValid = FALSE;
+  }
+
+  DEBUG ((
+    DEBUG_INFO,
+    "OCB: Have existing option %d, valid %d\n",
+    CurrDevicePath != NULL,
+    CurrOptionValid
+    ));
+
+  if (!CurrOptionValid) {
+    OptionNameSize = StrSize (OptionName);
+    DevicePathSize = GetDevicePathSize (DevicePath);
+    OptionSize     = sizeof (EFI_LOAD_OPTION) + OptionNameSize + DevicePathSize;
+
+    DEBUG ((DEBUG_INFO, "OCB: Creating boot option %s of %u bytes\n", OptionName, (UINT32) OptionSize));
+
+    Option = AllocatePool (OptionSize);
+    if (Option == NULL) {
+      DEBUG ((DEBUG_INFO, "OCB: Failed to allocate boot option (%u)\n", (UINT32) OptionSize));
+      FreePool (DevicePath);
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    Option->Attributes         = LOAD_OPTION_ACTIVE | LOAD_OPTION_CATEGORY_BOOT;
+    Option->FilePathListLength = (UINT16) DevicePathSize;
+    CopyMem (Option + 1, OptionName, OptionNameSize);
+    CopyMem ((UINT8 *) (Option + 1) + OptionNameSize, DevicePath, DevicePathSize);
+
+    Status = gRT->SetVariable (
+      OC_BOOT_OPTION_VARIABLE_NAME,
+      &gEfiGlobalVariableGuid,
+      EFI_VARIABLE_BOOTSERVICE_ACCESS
+        | EFI_VARIABLE_RUNTIME_ACCESS
+        | EFI_VARIABLE_NON_VOLATILE,
+      OptionSize,
+      Option
+      );
+
+    FreePool (Option);
+    FreePool (DevicePath);
+
+    if (EFI_ERROR (Status)) {
+      DEBUG ((DEBUG_INFO, "OCB: Failed to store boot option - %r\n", Status));
+      return Status;
+    }
+  }
+
+  BootOrderSize = 0;
+  Status = gRT->GetVariable (
+    EFI_BOOT_ORDER_VARIABLE_NAME,
+    &gEfiGlobalVariableGuid,
+    &BootOrderAttributes,
+    &BootOrderSize,
+    NULL
+    );
+
+  DEBUG ((
+    DEBUG_INFO,
+    "OCB: Have existing order of size %u - %r\n",
+    (UINT32) BootOrderSize,
+    Status
+    ));
+
+  if (Status == EFI_BUFFER_TOO_SMALL && BootOrderSize > 0 && BootOrderSize % sizeof (UINT16) == 0) {
+    BootOrder = AllocatePool (BootOrderSize + sizeof (UINT16));
+    if (BootOrder == NULL) {
+      DEBUG ((DEBUG_INFO, "OCB: Failed to allocate boot order\n"));
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    Status = gRT->GetVariable (
+      EFI_BOOT_ORDER_VARIABLE_NAME,
+      &gEfiGlobalVariableGuid,
+      &BootOrderAttributes,
+      &BootOrderSize,
+      (VOID *) (BootOrder + 1)
+      );
+
+    if (EFI_ERROR (Status) || BootOrderSize == 0 || BootOrderSize % sizeof (UINT16) != 0) {
+      DEBUG ((DEBUG_INFO, "OCB: Failed to obtain boot order %u - %r\n", (UINT32) BootOrderSize, Status));
+      if (!EFI_ERROR (Status)) {
+        FreePool (BootOrder);
+      }
+      return EFI_OUT_OF_RESOURCES;
+    }
+
+    if (BootOrder[1] == OC_BOOT_OPTION) {
+      DEBUG ((DEBUG_INFO, "OCB: Boot order has first option as the default option\n"));
+      FreePool (BootOrder);
+      return EFI_SUCCESS;
+    }
+
+    BootOrder[0] = OC_BOOT_OPTION;
+
+    Index = 1;
+    while (Index <= BootOrderSize / sizeof (UINT16)) {
+      if (BootOrder[Index] == OC_BOOT_OPTION) {
+        DEBUG ((DEBUG_INFO, "OCB: Moving boot option to the front from %u position\n", (UINT32) Index));
+        CopyMem (
+          &BootOrder[Index],
+          &BootOrder[Index + 1],
+          BootOrderSize - Index * sizeof (UINT16)
+          );
+        BootOrderSize -= sizeof (UINT16);
+      } else {
+        ++Index;
+      }
+    }
+
+    Status = gRT->SetVariable (
+      EFI_BOOT_ORDER_VARIABLE_NAME,
+      &gEfiGlobalVariableGuid,
+      EFI_VARIABLE_BOOTSERVICE_ACCESS
+        | EFI_VARIABLE_RUNTIME_ACCESS
+        | EFI_VARIABLE_NON_VOLATILE,
+      BootOrderSize + sizeof (UINT16),
+      BootOrder
+      );
+
+    FreePool (BootOrder);
+  } else {
+    NewBootOrder = OC_BOOT_OPTION;
+    Status = gRT->SetVariable (
+      EFI_BOOT_ORDER_VARIABLE_NAME,
+      &gEfiGlobalVariableGuid,
+      EFI_VARIABLE_BOOTSERVICE_ACCESS
+        | EFI_VARIABLE_RUNTIME_ACCESS
+        | EFI_VARIABLE_NON_VOLATILE,
+      sizeof (UINT16),
+      &NewBootOrder
+      );
+  }
+
+  DEBUG ((DEBUG_INFO, "OCB: Wrote new boot order with boot option - %r\n", Status));
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+OcRegisterBootOption (
+  IN CONST CHAR16    *OptionName,
+  IN EFI_HANDLE      DeviceHandle,
+  IN CONST CHAR16    *FilePath
+  )
+{
+  EFI_STATUS                    Status;
+  OC_FIRMWARE_RUNTIME_PROTOCOL  *FwRuntime;
+  OC_FWRT_CONFIG                Config;
+
+  Status = gBS->LocateProtocol (
+    &gOcFirmwareRuntimeProtocolGuid,
+    NULL,
+    (VOID **) &FwRuntime
+    );
+
+  if (!EFI_ERROR (Status) && FwRuntime->Revision == OC_FIRMWARE_RUNTIME_REVISION) {
+    ZeroMem (&Config, sizeof (Config));
+    FwRuntime->SetOverride (&Config);
+    DEBUG ((DEBUG_INFO, "OCB: Found FW NVRAM, full access %d\n", Config.BootVariableRedirect));
+  } else {
+    FwRuntime = NULL;
+    DEBUG ((DEBUG_INFO, "OCB: Missing FW NVRAM, going on...\n"));
+  }
+
+  Status = InternalRegisterBootOption (
+    OptionName,
+    DeviceHandle,
+    FilePath
+    );
+
+  if (FwRuntime != NULL) {
+    FwRuntime->SetOverride (NULL);
   }
 
   return Status;

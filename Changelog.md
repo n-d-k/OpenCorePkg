@@ -17,6 +17,8 @@ OpenCore Changelog
 - Added `AppleRtcRam` protocol implementation
 - Renamed `Protocols` to `ProtocolOverrides` for clarity
 - Added ResetSystem tool to allow shutdown/reset actions in the menu
+- Added experimental `BootProtect` `Security` option
+- Fixed kext injection in 10.8 installer
 
 #### v0.5.7
 - Added TimeMachine detection to picker
