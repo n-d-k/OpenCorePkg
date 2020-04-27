@@ -72,7 +72,8 @@ STATIC
 BOOLEAN
 IsToolPathValid (
   IN OC_STORAGE_CONTEXT            *Storage,
-  IN CONST CHAR8                   *Path
+  IN CONST CHAR8                   *Path,
+  IN BOOLEAN                       Skip
   )
 {
   EFI_STATUS                       Status;
@@ -81,6 +82,10 @@ IsToolPathValid (
   EFI_FILE_PROTOCOL                *File;
   CHAR16                           *ToolPath;
   CHAR16                           *FilePath;
+  
+  if (Skip) {
+    return TRUE;
+  }
   
   FilePath = AsciiStrCopyToUnicode (Path, 0);
   if (FilePath == NULL) {
@@ -767,7 +772,7 @@ OcMiscBoot (
   //
   for (Index = 0; Index < Config->Misc.Tools.Count; ++Index) {
     if (Config->Misc.Tools.Values[Index]->Enabled) {
-      if (IsToolPathValid (Storage, OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path))) {
+      if (IsToolPathValid (Storage, OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path), Config->Misc.Boot.SkipCustomEntryCheck)) {
         Context->CustomEntries[EntryIndex].Name      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Name);
         Context->CustomEntries[EntryIndex].Path      = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Path);
         Context->CustomEntries[EntryIndex].Arguments = OC_BLOB_GET (&Config->Misc.Tools.Values[Index]->Arguments);
