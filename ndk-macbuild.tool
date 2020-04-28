@@ -88,6 +88,7 @@ package() {
   cp "${selfdir}/Changelog.md" tmp/Docs/ || exit 1
   cp -r "${selfdir}/Docs/AcpiSamples/" tmp/Docs/AcpiSamples/ || exit 1
   cp -r "${selfdir}/Themes/Default/Light/Icons/" tmp/EFI/OC/Icons/ || exit 1
+  cp -r "${selfdir}/edk2/DuetPkg/BootLoader/bin" tmp/Utilities/BootInstall || exit 1
   cp -r "${selfdir}/Utilities/BootInstall" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/Utilities/CreateVault" tmp/Utilities/ || exit 1
   cp -r "${selfdir}/Utilities/LogoutHook" tmp/Utilities/ || exit 1
@@ -224,6 +225,7 @@ git checkout master
 git submodule update --init
 updaterepo "https://github.com/acidanthera/EfiPkg" EfiPkg master || exit 1
 updaterepo "https://github.com/acidanthera/MacInfoPkg" MacInfoPkg master || exit 1
+updaterepo "https://github.com/acidanthera/DuetPkg" DuetPkg master || exit 1
 
 if [ ! -d OpenCorePkg ]; then
   ln -s .. OpenCorePkg || exit 1
