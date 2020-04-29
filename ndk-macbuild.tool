@@ -57,8 +57,6 @@ package() {
   mkdir -p tmp/EFI/OC/Kexts || exit 1
   mkdir -p tmp/EFI/OC/Tools || exit 1
   mkdir -p tmp/Docs/AcpiSamples || exit 1
-  mkdir -p tmp/Utilities || exit 1
-  mkdir -p tmp/Utilities/BootInstall || exit 1
   cp OpenCore.efi tmp/EFI/OC/ || exit 1
   cp BOOTx64.efi tmp/EFI/BOOT/ || exit 1
   cp BOOTx64.efi tmp/EFI/OC/Bootstrap/Bootstrap.efi || exit 1
@@ -89,10 +87,6 @@ package() {
   cp "${selfdir}/Changelog.md" tmp/Docs/ || exit 1
   cp -r "${selfdir}/Docs/AcpiSamples/" tmp/Docs/AcpiSamples/ || exit 1
   cp -r "${selfdir}/Themes/Default/Light/Icons/" tmp/EFI/OC/Icons/ || exit 1
-  cp -r "${selfdir}/edk2/DuetPkg/BootLoader/bin" tmp/Utilities/BootInstall || exit 1
-  cp -r "${selfdir}/Utilities/BootInstall" tmp/Utilities/ || exit 1
-  cp -r "${selfdir}/Utilities/CreateVault" tmp/Utilities/ || exit 1
-  cp -r "${selfdir}/Utilities/LogoutHook" tmp/Utilities/ || exit 1
   pushd tmp || exit 1
   zip -qry -FS ../"NDK-OpenCore-${ver}-${2}.zip" * || exit 1
   popd || exit 1
